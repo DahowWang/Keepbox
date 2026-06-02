@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'HTMLViewer' in project 'HTMLViewer'
-➜ Explicit dependency on target 'ShareExtension' in project 'HTMLViewer'
-Target 'ShareExtension' in project 'HTMLViewer' (no dependencies)
