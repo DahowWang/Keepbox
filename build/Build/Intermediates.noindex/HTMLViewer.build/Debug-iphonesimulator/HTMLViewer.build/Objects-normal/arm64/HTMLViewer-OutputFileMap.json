@@ -1,0 +1,119 @@
+{
+  "" : {
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewer-primary.dia",
+    "emit-module-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewer-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewer-primary-emit-module.dia",
+    "pch" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewer-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewer-primary.swiftdeps"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/HTMLViewerApp.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLViewerApp~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Models/Folder.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Folder~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Models/HTMLFile.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/HTMLFile~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Models/Tag.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/Tag~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Utilities/FileImporter.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileImporter~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Utilities/WebView.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/WebView~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/ViewModels/FileViewModel.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileViewModel~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Views/ContentView.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Views/FileDetailView.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileDetailView~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/HTMLViewer/Views/FileListView.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/FileListView~partial.swiftmodule"
+  },
+  "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/dahow/Claude Project/HTMLViewer/build/Build/Intermediates.noindex/HTMLViewer.build/Debug-iphonesimulator/HTMLViewer.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}
