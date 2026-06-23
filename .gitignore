@@ -40,3 +40,6 @@ xcuserdata/
 # asc verify scratch
 /tmp/
 ascmeta/.asc/
+
+# asc reports/config
+.asc/
