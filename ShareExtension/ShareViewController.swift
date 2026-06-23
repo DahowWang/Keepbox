@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 class ShareViewController: UIViewController {
 
-    private let appGroupID = "group.tw.mixxin.htmlviewer"
+    private let appGroupID = "group.com.dahow.keepbox"
 
     override func viewDidLoad() {
         super.viewDidLoad()

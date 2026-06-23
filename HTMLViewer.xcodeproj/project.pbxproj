@@ -365,7 +365,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = tw.mixxin.htmlviewer.ShareExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahow.keepbox.ShareExtension;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -382,7 +382,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = tw.mixxin.htmlviewer.ShareExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahow.keepbox.ShareExtension;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -464,7 +464,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = tw.mixxin.htmlviewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahow.keepbox;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -482,7 +482,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = tw.mixxin.htmlviewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahow.keepbox;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

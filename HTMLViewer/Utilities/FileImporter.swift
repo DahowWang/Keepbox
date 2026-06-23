@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 class FileImporter {
-    private let appGroupID = "group.tw.mixxin.htmlviewer"
+    private let appGroupID = "group.com.dahow.keepbox"
 
     func importPendingFiles(into context: ModelContext) {
         guard let containerURL = FileManager.default
