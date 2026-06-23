@@ -24,10 +24,17 @@ targets:
     info:
       path: HTMLViewer/Info.plist
       properties:
-        CFBundleDisplayName: HTML Viewer
+        CFBundleDisplayName: Keepbox
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
-        UILaunchStoryboardName: ""
+        CFBundleVersion: "2"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: HTML Document
