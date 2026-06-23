@@ -78,10 +78,39 @@ struct ContentView: View {
                 }
             })
         }
-        .onAppear { importer.importPendingFiles(into: modelContext) }
+        .onAppear {
+            importer.importPendingFiles(into: modelContext)
+            applyScreenshotStateIfNeeded()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .importPending)) { _ in
             importer.importPendingFiles(into: modelContext)
         }
+    }
+
+    // DEBUG-only: drive initial UI state for App Store screenshots via launch args.
+    private func applyScreenshotStateIfNeeded() {
+        #if DEBUG
+        ScreenshotSeeder.seedIfNeeded(modelContext)
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-screenshotLayout"), i + 1 < args.count {
+            switch args[i + 1] {
+            case "grid": layout = .grid
+            case "gallery": layout = .gallery
+            case "list": layout = .list
+            default: break
+            }
+        }
+        // Fetch fresh (the @Query result lags a same-tick insert) for the reader.
+        let files = (try? modelContext.fetch(
+            FetchDescriptor<HTMLFile>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+        if let i = args.firstIndex(of: "-screenshotScreen"), i + 1 < args.count {
+            switch args[i + 1] {
+            case "reader": openFile = files.first { $0.name.contains("邀請") } ?? files.first
+            case "search": isSearching = true
+            default: break
+            }
+        }
+        #endif
     }
 
     @ViewBuilder

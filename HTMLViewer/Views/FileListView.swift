@@ -239,7 +239,10 @@ struct KBGridCard: View {
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 0) {
-                HTMLThumbnailView(htmlContent: file.content, width: 163, height: 118)
+                GeometryReader { geo in
+                    HTMLThumbnailView(htmlContent: file.content, width: geo.size.width, height: 118)
+                }
+                .frame(height: 118)
                     .overlay(alignment: .topLeading) {
                         if let tag = file.tags.first {
                             Text(tag.name)
