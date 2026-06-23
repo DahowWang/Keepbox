@@ -36,3 +36,7 @@ fastlane/test_output
 # Xcode auto-generated
 *.xcscmblueprint
 xcuserdata/
+
+# asc verify scratch
+/tmp/
+ascmeta/.asc/
