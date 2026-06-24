@@ -31,14 +31,26 @@ class ShareViewController: UIViewController {
                     group.enter()
                     provider.loadItem(forTypeIdentifier: UTType.html.identifier) { [weak self] data, _ in
                         defer { group.leave() }
-                        if let saved = self?.handle(data: data) { if saved { savedCount += 1 } }
+                        if self?.handle(data: data) == true { savedCount += 1 }
                     }
                 } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
                     group.enter()
                     provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { [weak self] data, _ in
                         defer { group.leave() }
                         if let url = data as? URL, url.pathExtension.lowercased() == "html" {
-                            if let saved = self?.handleFileURL(url) { if saved { savedCount += 1 } }
+                            if self?.handleFileURL(url) == true { savedCount += 1 }
+                        }
+                    }
+                } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                    // Webpage shared from Safari etc. — fetch the page HTML and save it.
+                    group.enter()
+                    provider.loadItem(forTypeIdentifier: UTType.url.identifier) { [weak self] data, _ in
+                        guard let self, let pageURL = data as? URL, pageURL.scheme?.hasPrefix("http") == true else {
+                            group.leave(); return
+                        }
+                        self.fetchPage(pageURL) { saved in
+                            if saved { savedCount += 1 }
+                            group.leave()
                         }
                     }
                 }
@@ -50,8 +62,55 @@ class ShareViewController: UIViewController {
         }
     }
 
+    // MARK: - Webpage fetching
+
+    private func fetchPage(_ url: URL, completion: @escaping (Bool) -> Void) {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 20
+        request.setValue(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
+            forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self, let data, !data.isEmpty,
+                  let html = String(data: data, encoding: .utf8)
+                    ?? String(data: data, encoding: .isoLatin1) else {
+                completion(false); return
+            }
+            // Inject a <base> tag so relative images/links still resolve when read offline.
+            let withBase = self.injectBaseTag(html, pageURL: url)
+            let name = self.pageName(from: withBase, url: url)
+            let saved = self.saveToAppGroup(content: withBase, filename: "url_\(name).html")
+            completion(saved)
+        }.resume()
+    }
+
+    private func injectBaseTag(_ html: String, pageURL: URL) -> String {
+        guard html.range(of: "<base", options: .caseInsensitive) == nil,
+              let headRange = html.range(of: "<head>", options: .caseInsensitive) else { return html }
+        var out = html
+        out.insert(contentsOf: "<base href=\"\(pageURL.absoluteString)\">", at: headRange.upperBound)
+        return out
+    }
+
+    private func pageName(from html: String, url: URL) -> String {
+        if let r = html.range(of: "<title>", options: .caseInsensitive),
+           let e = html.range(of: "</title>", options: .caseInsensitive, range: r.upperBound..<html.endIndex) {
+            let title = html[r.upperBound..<e.lowerBound]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !title.isEmpty { return sanitize(String(title.prefix(60))) }
+        }
+        return sanitize(url.host ?? "webpage")
+    }
+
+    private func sanitize(_ name: String) -> String {
+        let bad = CharacterSet(charactersIn: "/\\:?%*|\"<>")
+        let cleaned = name.components(separatedBy: bad).joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "webpage" : cleaned
+    }
+
     private func showResult(_ success: Bool) {
-        let message = success ? "已儲存到 HTML Viewer" : "找不到 HTML 檔案"
+        let message = success ? "已存入 Keepbox" : "無法擷取此頁面"
         let icon = success ? "checkmark.circle.fill" : "xmark.circle.fill"
         let color: UIColor = success ? .systemGreen : .systemRed
 
