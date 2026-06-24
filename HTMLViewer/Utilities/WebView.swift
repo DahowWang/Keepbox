@@ -38,16 +38,27 @@ struct WebView: UIViewRepresentable {
         // After load, if the content is still wider than the screen (fixed-width
         // layouts), scale the whole page down so nothing is clipped off the edge.
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            fitToWidth(webView)
+            // Large pages reflow after inline images decode — re-measure shortly after.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak webView] in
+                guard let webView else { return }
+                self.fitToWidth(webView)
+            }
+        }
+
+        private func fitToWidth(_ webView: WKWebView) {
             let js = """
             (function(){
               var d=document.documentElement, b=document.body;
-              var w=Math.max(d.scrollWidth, b?b.scrollWidth:0, d.offsetWidth);
+              var w=Math.max(d.scrollWidth, b?b.scrollWidth:0, d.offsetWidth, b?b.offsetWidth:0);
               var win=window.innerWidth;
+              var m=document.querySelector('meta[name=viewport]');
+              if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}
               if(w > win+1){
                 var s=win/w;
-                var m=document.querySelector('meta[name=viewport]');
-                if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}
-                m.setAttribute('content','width='+w+', initial-scale='+s+', maximum-scale='+s);
+                m.setAttribute('content','width='+w+', initial-scale='+s+', minimum-scale='+s+', maximum-scale='+s);
+              } else {
+                m.setAttribute('content','width=device-width, initial-scale=1');
               }
             })();
             """
