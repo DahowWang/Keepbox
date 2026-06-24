@@ -125,6 +125,14 @@ class ShareViewController: UIViewController {
         // Bail out if the network is slow so the share sheet never hangs.
         DispatchQueue.main.asyncAfter(deadline: .now() + 12) { finish(PageMeta()) }
 
+        // X blocks crawlers, but its embed/syndication endpoint serves tweet
+        // text, author and photos without login — use it for x.com / twitter.com.
+        let host = url.host ?? ""
+        if (host.contains("x.com") || host.contains("twitter.com")), let id = Self.tweetID(url) {
+            fetchTweet(id: id, finish: finish)
+            return
+        }
+
         var req = URLRequest(url: url)
         req.timeoutInterval = 10
         req.setValue(Self.crawlerUserAgent(for: url), forHTTPHeaderField: "User-Agent")
@@ -144,6 +152,57 @@ class ShareViewController: UIViewController {
                 URLSession.shared.dataTask(with: ireq) { idata, _, _ in
                     meta.imageData = idata
                     finish(meta)
+                }.resume()
+            } else {
+                finish(meta)
+            }
+        }.resume()
+    }
+
+    private static func tweetID(_ url: URL) -> String? {
+        let parts = url.pathComponents
+        if let i = parts.firstIndex(of: "status"), i + 1 < parts.count {
+            let id = parts[i + 1].prefix { $0.isNumber }
+            return id.isEmpty ? nil : String(id)
+        }
+        return nil
+    }
+
+    private func fetchTweet(id: String, finish: @escaping (PageMeta) -> Void) {
+        guard let api = URL(string:
+            "https://cdn.syndication.twimg.com/tweet-result?id=\(id)&lang=en&token=a") else {
+            finish(PageMeta()); return
+        }
+        var req = URLRequest(url: api); req.timeoutInterval = 10
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            guard let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let text = json["text"] as? String else {
+                finish(PageMeta()); return
+            }
+            var meta = PageMeta()
+            let user = json["user"] as? [String: Any]
+            let name = user?["name"] as? String ?? ""
+            let screen = user?["screen_name"] as? String ?? ""
+            let byline = screen.isEmpty ? name : "\(name) (@\(screen))"
+            meta.title = self.firstLine(text) ?? (byline.isEmpty ? "貼文" : byline)
+            meta.description = byline.isEmpty ? text : "\(text)\n\n— \(byline)"
+
+            // Prefer an attached photo; fall back to the author's avatar.
+            var imgURLString: String?
+            if let photos = json["photos"] as? [[String: Any]], let u = photos.first?["url"] as? String {
+                imgURLString = u
+            } else if let media = json["mediaDetails"] as? [[String: Any]],
+                      let u = media.first?["media_url_https"] as? String {
+                imgURLString = u
+            } else if let avatar = user?["profile_image_url_https"] as? String {
+                imgURLString = avatar.replacingOccurrences(of: "_normal", with: "_400x400")
+            }
+            if let s = imgURLString, let imgURL = URL(string: s) {
+                var ir = URLRequest(url: imgURL); ir.timeoutInterval = 8
+                URLSession.shared.dataTask(with: ir) { idata, _, _ in
+                    meta.imageData = idata; finish(meta)
                 }.resume()
             } else {
                 finish(meta)
