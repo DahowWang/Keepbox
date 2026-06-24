@@ -27,6 +27,7 @@ targets:
         CFBundleDisplayName: Keepbox
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "2"
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
