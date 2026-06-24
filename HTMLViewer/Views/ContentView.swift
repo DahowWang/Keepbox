@@ -9,6 +9,7 @@ enum KBLayout { case grid, gallery, list }
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var allFiles: [HTMLFile]
     @Query private var folders: [Folder]
     @Query private var tags: [Tag]
@@ -81,6 +82,11 @@ struct ContentView: View {
         .onAppear {
             importer.importPendingFiles(into: modelContext)
             applyScreenshotStateIfNeeded()
+        }
+        // Re-import whenever the app returns to the foreground — a share saved
+        // while Keepbox was backgrounded would otherwise wait for a cold launch.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { importer.importPendingFiles(into: modelContext) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .importPending)) { _ in
             importer.importPendingFiles(into: modelContext)
