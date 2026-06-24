@@ -89,20 +89,136 @@ class ShareViewController: UIViewController {
             guard sharedURL != nil || sharedText != nil || imageData != nil else {
                 self.showResult(false); return
             }
-            let card = self.buildCard(url: sharedURL, text: sharedText, imageData: imageData)
-            let name = self.cardName(url: sharedURL, text: sharedText)
-            let ok = self.saveToAppGroup(content: card, filename: "url_\(self.sanitize(name)).html")
-            self.showResult(ok)
+            // A link alone (X / Facebook etc.) carries no title or image — fetch the
+            // page's Open Graph preview to enrich the card. Falls back gracefully.
+            if let url = sharedURL {
+                self.fetchMetadata(url) { meta in
+                    let title = self.firstNonEmpty(sharedText.flatMap(self.firstLine), meta.title, url.host)
+                    let caption = self.firstNonEmpty(sharedText, meta.description) ?? ""
+                    self.composeAndSave(url: url, title: title ?? "收藏",
+                                        caption: caption, imageData: imageData ?? meta.imageData)
+                }
+            } else {
+                self.composeAndSave(url: nil,
+                                    title: self.firstLine(sharedText ?? "") ?? "收藏",
+                                    caption: sharedText ?? "", imageData: imageData)
+            }
         }
+    }
+
+    private func composeAndSave(url: URL?, title: String, caption: String, imageData: Data?) {
+        let card = buildCard(url: url, title: title, caption: caption, imageData: imageData)
+        let ok = saveToAppGroup(content: card, filename: "url_\(sanitize(title)).html")
+        showResult(ok)
+    }
+
+    // MARK: - Open Graph metadata
+
+    struct PageMeta { var title: String?; var description: String?; var imageData: Data? }
+
+    private func fetchMetadata(_ url: URL, completion: @escaping (PageMeta) -> Void) {
+        var done = false
+        let finish: (PageMeta) -> Void = { meta in
+            if done { return }; done = true
+            DispatchQueue.main.async { completion(meta) }
+        }
+        // Bail out if the network is slow so the share sheet never hangs.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { finish(PageMeta()) }
+
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 10
+        req.setValue(Self.crawlerUserAgent(for: url), forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let self, let data,
+                  let html = String(data: data.prefix(400_000), encoding: .utf8)
+                    ?? String(data: data.prefix(400_000), encoding: .isoLatin1) else {
+                finish(PageMeta()); return
+            }
+            var meta = PageMeta()
+            meta.title = self.metaContent(html, keys: ["og:title", "twitter:title"]) ?? self.htmlTitle(html)
+            meta.description = self.metaContent(html, keys: ["og:description", "twitter:description"])
+            if let imgStr = self.metaContent(html, keys: ["og:image", "twitter:image", "og:image:url"]),
+               let imgURL = URL(string: imgStr, relativeTo: url) {
+                var ireq = URLRequest(url: imgURL); ireq.timeoutInterval = 8
+                ireq.setValue(Self.crawlerUserAgent(for: url), forHTTPHeaderField: "User-Agent")
+                URLSession.shared.dataTask(with: ireq) { idata, _, _ in
+                    meta.imageData = idata
+                    finish(meta)
+                }.resume()
+            } else {
+                finish(meta)
+            }
+        }.resume()
+    }
+
+    private static func crawlerUserAgent(for url: URL) -> String {
+        let host = url.host ?? ""
+        if host.contains("x.com") || host.contains("twitter.com") { return "Twitterbot/1.0" }
+        if host.contains("facebook.com") || host.contains("fb.com") { return "facebookexternalhit/1.1" }
+        return "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+    }
+
+    private func metaContent(_ html: String, keys: [String]) -> String? {
+        for key in keys {
+            // Match <meta ... (property|name)="key" ... content="...">  in either attribute order.
+            let patterns = [
+                "<meta[^>]+(?:property|name)=[\"']\(key)[\"'][^>]*content=[\"']([^\"']+)[\"']",
+                "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"']\(key)[\"']",
+            ]
+            for p in patterns {
+                if let r = html.range(of: p, options: [.regularExpression, .caseInsensitive]) {
+                    let frag = String(html[r])
+                    if let c = frag.range(of: "content=[\"']([^\"']+)", options: [.regularExpression, .caseInsensitive]) {
+                        let v = String(frag[c]).replacingOccurrences(of: "content=", with: "")
+                            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                        let decoded = Self.decodeEntities(v)
+                        if !decoded.isEmpty { return decoded }
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private func htmlTitle(_ html: String) -> String? {
+        guard let r = html.range(of: "<title[^>]*>", options: [.regularExpression, .caseInsensitive]),
+              let e = html.range(of: "</title>", options: .caseInsensitive, range: r.upperBound..<html.endIndex)
+        else { return nil }
+        let t = Self.decodeEntities(String(html[r.upperBound..<e.lowerBound]))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
+    private static func decodeEntities(_ s: String) -> String {
+        s.replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+    }
+
+    private func firstLine(_ text: String) -> String? {
+        let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
+        let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        return clean.isEmpty ? nil : String(clean.prefix(60))
+    }
+
+    private func firstNonEmpty(_ values: String?...) -> String? {
+        for v in values {
+            if let v, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return v }
+        }
+        return nil
     }
 
     // MARK: - Collection card
 
-    private func buildCard(url: URL?, text: String?, imageData: Data?) -> String {
+    private func buildCard(url: URL?, title rawTitle: String, caption rawCaption: String, imageData: Data?) -> String {
         let host = url?.host?.replacingOccurrences(of: "www.", with: "") ?? "收藏"
-        let title = cardName(url: url, text: text)
-        let caption = (text ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        // If the caption is just the title repeated, drop it to avoid duplication.
+        let trimmedCaption = rawCaption.trimmingCharacters(in: .whitespacesAndNewlines)
+        let caption = (trimmedCaption == title ? "" : trimmedCaption)
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
@@ -143,16 +259,6 @@ class ShareViewController: UIViewController {
         <div class="body"><div class="src">\(host)</div>\(titleBlock)\(captionBlock)\(linkBlock)</div>
         </div></body></html>
         """
-    }
-
-    private func cardName(url: URL?, text: String?) -> String {
-        if let text {
-            let firstLine = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
-            let clean = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !clean.isEmpty { return String(clean.prefix(50)) }
-        }
-        if let host = url?.host?.replacingOccurrences(of: "www.", with: "") { return host }
-        return "收藏"
     }
 
     // MARK: - Helpers
