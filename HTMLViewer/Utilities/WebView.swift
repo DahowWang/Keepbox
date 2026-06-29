@@ -1,6 +1,10 @@
 import SwiftUI
 import WebKit
 
+/// Renders saved HTML like mobile Safari: lay out at device width, allow
+/// horizontal scrolling for wider sections, and always allow pinch-to-zoom so
+/// nothing is clipped and small text stays readable. We deliberately do NOT
+/// shrink the whole page to fit — that made dense reports unreadable.
 struct WebView: UIViewRepresentable {
     let htmlContent: String
 
@@ -11,6 +15,8 @@ struct WebView: UIViewRepresentable {
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.scrollView.bounces = true
+        webView.scrollView.minimumZoomScale = 1
+        webView.scrollView.maximumZoomScale = 5
         webView.navigationDelegate = context.coordinator
         return webView
     }
@@ -21,8 +27,8 @@ struct WebView: UIViewRepresentable {
         webView.loadHTMLString(injectViewport(htmlContent), baseURL: nil)
     }
 
-    /// Ensure a mobile viewport so responsive pages lay out at screen width
-    /// instead of overflowing and getting clipped.
+    /// Add a mobile viewport when the page lacks one (older exports render at a
+    /// 980px desktop width otherwise).
     private func injectViewport(_ html: String) -> String {
         guard html.range(of: "name=[\"']?viewport", options: .regularExpression) == nil else { return html }
         let tag = "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
@@ -35,30 +41,18 @@ struct WebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var loaded: String?
 
-        // After load, if the content is still wider than the screen (fixed-width
-        // layouts), scale the whole page down so nothing is clipped off the edge.
+        // Guarantee the reader is always zoomable: some pages ship
+        // user-scalable=no / maximum-scale, which would trap small text at an
+        // unreadable size. Strip those so pinch-zoom works like Safari.
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            fitToWidth(webView)
-            // Large pages reflow after inline images decode — re-measure shortly after.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak webView] in
-                guard let webView else { return }
-                self.fitToWidth(webView)
-            }
-        }
-
-        private func fitToWidth(_ webView: WKWebView) {
             let js = """
             (function(){
-              var d=document.documentElement, b=document.body;
-              var w=Math.max(d.scrollWidth, b?b.scrollWidth:0, d.offsetWidth, b?b.offsetWidth:0);
-              var win=window.innerWidth;
               var m=document.querySelector('meta[name=viewport]');
-              if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}
-              if(w > win+1){
-                var s=win/w;
-                m.setAttribute('content','width='+w+', initial-scale='+s+', minimum-scale='+s+', maximum-scale='+s);
-              } else {
-                m.setAttribute('content','width=device-width, initial-scale=1');
+              if(m){
+                var c=m.getAttribute('content')||'';
+                c=c.replace(/,?\\s*user-scalable\\s*=\\s*(no|0)/ig,'')
+                   .replace(/,?\\s*maximum-scale\\s*=\\s*[0-9.]+/ig,'');
+                m.setAttribute('content', c + ', maximum-scale=5');
               }
             })();
             """
