@@ -134,6 +134,12 @@ class ShareViewController: UIViewController {
             fetchTweet(id: id, finish: finish)
             return
         }
+        // 小紅書 has no OG tags but embeds the note (title, desc, images) in a
+        // window.__INITIAL_STATE__ blob served to normal browsers.
+        if host.contains("xiaohongshu.com") || host.contains("xhslink.com") {
+            fetchXiaohongshu(url, finish: finish)
+            return
+        }
 
         var req = URLRequest(url: url)
         req.timeoutInterval = 10
@@ -212,6 +218,52 @@ class ShareViewController: UIViewController {
                 finish(meta)
             }
         }.resume()
+    }
+
+    private func fetchXiaohongshu(_ url: URL, finish: @escaping (PageMeta) -> Void) {
+        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if comps?.scheme == "http" { comps?.scheme = "https" }  // ATS: upgrade
+        guard let httpsURL = comps?.url else { finish(PageMeta()); return }
+        var req = URLRequest(url: httpsURL); req.timeoutInterval = 12
+        req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+                     forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let self, let data, let html = String(data: data, encoding: .utf8) else {
+                finish(PageMeta()); return
+            }
+            var meta = PageMeta()
+            if let t = self.firstGroup(html, #""title":"((?:[^"\\]|\\.){1,200})""#) { meta.title = self.jsonUnescape(t) }
+            if let d = self.firstGroup(html, #""desc":"((?:[^"\\]|\\.){0,2000})""#) { meta.description = self.jsonUnescape(d) }
+            if let raw = self.firstGroup(html, #""imageList":\[.{0,600}?"url":"(http[^"]+?)""#) {
+                var s = raw.replacingOccurrences(of: "\\u002F", with: "/")
+                    .replacingOccurrences(of: "\\u002f", with: "/")
+                if s.hasPrefix("http://") { s = "https://" + s.dropFirst("http://".count) }
+                if let imgURL = URL(string: s) {
+                    var ir = URLRequest(url: imgURL); ir.timeoutInterval = 8
+                    URLSession.shared.dataTask(with: ir) { idata, _, _ in
+                        meta.imageData = idata; finish(meta)
+                    }.resume()
+                    return
+                }
+            }
+            finish(meta)
+        }.resume()
+    }
+
+    private func firstGroup(_ s: String, _ pattern: String) -> String? {
+        guard let re = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else { return nil }
+        let ns = s as NSString
+        guard let m = re.firstMatch(in: s, range: NSRange(location: 0, length: ns.length)), m.numberOfRanges > 1
+        else { return nil }
+        let v = ns.substring(with: m.range(at: 1))
+        return v.isEmpty ? nil : v
+    }
+
+    private func jsonUnescape(_ s: String) -> String {
+        guard let data = "\"\(s)\"".data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) as? String
+        else { return s }
+        return obj
     }
 
     private static func crawlerUserAgent(for url: URL) -> String {
