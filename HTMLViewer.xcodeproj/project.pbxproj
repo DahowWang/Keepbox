@@ -16,8 +16,10 @@
 		45A478C71F61AC7A1106583A /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23F18D162BCA27449C51C95 /* WebView.swift */; };
 		468A89FCBA09A69709B098B8 /* HTMLThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2914C46499874F85849A9AE5 /* HTMLThumbnailView.swift */; };
 		561609DD3DC2F01F92485D36 /* ScreenshotSeederImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF563B430E624AA9ADA2BBD /* ScreenshotSeederImages.swift */; };
+		5845B7A16FBF7274BFB60A06 /* LinkCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF1CEB38D47BDD3E17E3FD3 /* LinkCollector.swift */; };
 		68AA3D8C4DC8ECA9AE34E7AB /* ImportSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111D9E6CCF96711CAC31D571 /* ImportSheetView.swift */; };
 		6E58CFBBCE0ED9CDB60B7A77 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EDE120BB3C587B7FB36F4B /* SearchView.swift */; };
+		7585D958D04CB00411917229 /* LinkCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF1CEB38D47BDD3E17E3FD3 /* LinkCollector.swift */; };
 		76667521277C0EF3833E9CFE /* FolderGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5F702BA1A24D8FA9882A3C /* FolderGridView.swift */; };
 		85F1BFF91D13EB34044666AF /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD12CE84B54D1E35BFBD60EF /* Tag.swift */; };
 		8F61B06C9F8B682C9E0F6108 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52915EE81DF3CF261610D5C1 /* ShareViewController.swift */; };
@@ -71,6 +73,7 @@
 		7B76C1AD5492A5FF3318C10B /* Folder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Folder.swift; sourceTree = "<group>"; };
 		8080A63B51A1269C02866BA1 /* HTMLFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLFile.swift; sourceTree = "<group>"; };
 		89987F7B78BA67813DFDE029 /* ScreenshotSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotSeeder.swift; sourceTree = "<group>"; };
+		8DF1CEB38D47BDD3E17E3FD3 /* LinkCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkCollector.swift; sourceTree = "<group>"; };
 		8E19B101CDB505ADF27AECC9 /* HTMLViewer.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HTMLViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A37D6041FFA62A429199053 /* FileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewModel.swift; sourceTree = "<group>"; };
 		9A5C54D558CEAE507735B2BF /* HTMLViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HTMLViewer.entitlements; sourceTree = "<group>"; };
@@ -99,6 +102,7 @@
 			isa = PBXGroup;
 			children = (
 				F4B5A22EAE655D53146F91A1 /* HTMLViewer */,
+				B155855C7E58469DB5B54CCB /* Shared */,
 				886FDD4F52FE160E50713036 /* ShareExtension */,
 				C0C01E5712ACF8B31433E164 /* Products */,
 			);
@@ -120,6 +124,14 @@
 				52915EE81DF3CF261610D5C1 /* ShareViewController.swift */,
 			);
 			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		B155855C7E58469DB5B54CCB /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				8DF1CEB38D47BDD3E17E3FD3 /* LinkCollector.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		BD2459B33EACF55C1D37F273 /* Models */ = {
@@ -277,6 +289,7 @@
 				468A89FCBA09A69709B098B8 /* HTMLThumbnailView.swift in Sources */,
 				1DBACB2D7058259364C9587C /* HTMLViewerApp.swift in Sources */,
 				68AA3D8C4DC8ECA9AE34E7AB /* ImportSheetView.swift in Sources */,
+				5845B7A16FBF7274BFB60A06 /* LinkCollector.swift in Sources */,
 				1DC7250EAC3189DF614E0922 /* ScreenshotSeeder.swift in Sources */,
 				561609DD3DC2F01F92485D36 /* ScreenshotSeederImages.swift in Sources */,
 				6E58CFBBCE0ED9CDB60B7A77 /* SearchView.swift in Sources */,
@@ -290,6 +303,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7585D958D04CB00411917229 /* LinkCollector.swift in Sources */,
 				8F61B06C9F8B682C9E0F6108 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -19,6 +19,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: HTMLViewer
+      - path: Shared
     resources:
       - path: HTMLViewer/Assets.xcassets
     info:
@@ -26,7 +27,7 @@ targets:
       properties:
         CFBundleDisplayName: Keepbox
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "13"
+        CFBundleVersion: "14"
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
@@ -60,12 +61,13 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ShareExtension
+      - path: Shared
     info:
       path: ShareExtension/Info.plist
       properties:
         CFBundleDisplayName: 存到 Keepbox
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "13"
+        CFBundleVersion: "14"
         NSExtension:
           NSExtensionAttributes:
             NSExtensionActivationRule:

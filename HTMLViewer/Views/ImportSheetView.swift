@@ -11,14 +11,24 @@ struct ImportSheetView: View {
     @State private var pastedHTML = ""
     @State private var fileName = "匯入的 HTML"
     @State private var showFilePicker = false
+    @State private var linkURL = ""
+    @State private var isFetching = false
 
-    enum Step { case source, paste, done }
+    enum Step { case source, link, paste, done }
+
+    private var normalizedURL: URL? {
+        let t = linkURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+        if let u = LinkCollector.firstURL(in: t) { return u }
+        return URL(string: t.lowercased().hasPrefix("http") ? t : "https://\(t)")
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 switch step {
                 case .source: sourceView
+                case .link:   linkView
                 case .paste:  pasteView
                 case .done:   doneView
                 }
@@ -30,7 +40,7 @@ struct ImportSheetView: View {
                         Button("取消", action: onSaved)
                     }
                 }
-                if step == .paste {
+                if step == .paste || step == .link {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
                             step = .source
@@ -68,6 +78,10 @@ struct ImportSheetView: View {
                     .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 20)
 
                 VStack(spacing: 0) {
+                    sourceRow("貼上連結", icon: "link") {
+                        step = .link
+                    }
+                    Divider().padding(.leading, 51)
                     sourceRow("貼上 HTML 原始碼", icon: "chevron.left.forwardslash.chevron.right") {
                         step = .paste
                     }
@@ -107,6 +121,64 @@ struct ImportSheetView: View {
                     .foregroundStyle(Color.kbSub(scheme))
             }
             .padding(.vertical, 14).padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Paste link view
+    private var linkView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("貼上連結")
+                .font(.system(size: 19, weight: .heavy))
+                .foregroundStyle(Color.kbText(scheme))
+                .padding(.horizontal, 20).padding(.top, 8)
+
+            Text("貼上網頁、X、Facebook、小紅書等連結，Keepbox 會自動擷取標題、內文與封面，做成收藏卡。")
+                .font(.system(size: 13.5))
+                .foregroundStyle(Color.kbSub(scheme))
+                .padding(.horizontal, 20)
+
+            TextField("https://…", text: $linkURL, axis: .vertical)
+                .font(.system(size: 15.5))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .lineLimit(1...4)
+                .padding(.horizontal, 14).padding(.vertical, 13)
+                .background(Color.secondary.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 13))
+                .padding(.horizontal, 20)
+
+            Spacer()
+
+            Button { collectLink() } label: {
+                HStack(spacing: 8) {
+                    if isFetching { ProgressView().tint(.white) }
+                    Text(isFetching ? "擷取中…" : "擷取並存入")
+                        .font(.system(size: 16.5, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity).frame(height: 50)
+                .background(normalizedURL == nil ? Color.kbAccent.opacity(0.4) : Color.kbAccent)
+                .clipShape(RoundedRectangle(cornerRadius: 15))
+                .shadow(color: Color.kbAccent.opacity(normalizedURL == nil ? 0 : 0.5), radius: 12)
+            }
+            .disabled(normalizedURL == nil || isFetching)
+            .padding(.horizontal, 20).padding(.bottom, 30)
+        }
+        .background(Color.kbBg(scheme))
+    }
+
+    private func collectLink() {
+        guard let url = normalizedURL, !isFetching else { return }
+        isFetching = true
+        LinkCollector.collect(url) { r in
+            let card = LinkCollector.cardHTML(url: url, title: r.title, caption: r.caption, imageData: r.imageData)
+            let file = HTMLFile(name: LinkCollector.sanitize(r.title), content: card)
+            modelContext.insert(file)
+            try? modelContext.save()
+            fileName = r.title
+            isFetching = false
+            withAnimation { step = .done }
         }
     }
 
