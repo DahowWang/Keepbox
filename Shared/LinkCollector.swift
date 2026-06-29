@@ -106,6 +106,10 @@ enum LinkCollector {
         var req = URLRequest(url: httpsURL); req.timeoutInterval = 12
         req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
                      forHTTPHeaderField: "User-Agent")
+        // 小紅書 only serves the note (vs an "open in app" redirect) to requests
+        // with browser-like Accept headers; URLSession omits them by default.
+        req.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+        req.setValue("zh-TW,zh;q=0.9,en;q=0.8", forHTTPHeaderField: "Accept-Language")
         URLSession.shared.dataTask(with: req) { data, _, _ in
             guard let data, let html = String(data: data, encoding: .utf8) else { finish(PageMeta()); return }
             var meta = PageMeta()
