@@ -93,9 +93,11 @@ class ShareViewController: UIViewController {
             // page's Open Graph preview to enrich the card. Falls back gracefully.
             if let url = sharedURL {
                 self.fetchMetadata(url) { meta in
-                    let title = self.firstNonEmpty(sharedText.flatMap(self.firstLine), meta.title, url.host)
-                    let caption = self.firstNonEmpty(sharedText, meta.description) ?? ""
-                    self.composeAndSave(url: url, title: title ?? "收藏",
+                    // Prefer the fetched caption (real post text) over the shared
+                    // text, which is often just the bare URL.
+                    let caption = self.firstNonEmpty(meta.description, sharedText) ?? ""
+                    let title = self.firstNonEmpty(meta.title, self.firstLine(caption), url.host) ?? "收藏"
+                    self.composeAndSave(url: url, title: title,
                                         caption: caption, imageData: imageData ?? meta.imageData)
                 }
             } else {
@@ -143,8 +145,10 @@ class ShareViewController: UIViewController {
                 finish(PageMeta()); return
             }
             var meta = PageMeta()
-            meta.title = self.metaContent(html, keys: ["og:title", "twitter:title"]) ?? self.htmlTitle(html)
-            meta.description = self.metaContent(html, keys: ["og:description", "twitter:description"])
+            meta.title = self.metaContent(html, keys: ["og:title", "twitter:title", "title"]) ?? self.htmlTitle(html)
+            // Facebook (and many sites) put the post caption in <meta name="description">
+            // rather than og:description — check both.
+            meta.description = self.metaContent(html, keys: ["og:description", "twitter:description", "description"])
             if let imgStr = self.metaContent(html, keys: ["og:image", "twitter:image", "og:image:url"]),
                let imgURL = URL(string: imgStr, relativeTo: url) {
                 var ireq = URLRequest(url: imgURL); ireq.timeoutInterval = 8
@@ -249,7 +253,18 @@ class ShareViewController: UIViewController {
     }
 
     private static func decodeEntities(_ s: String) -> String {
-        s.replacingOccurrences(of: "&amp;", with: "&")
+        var out = s
+        // Numeric entities — &#x65b0; (hex) and &#1234; (decimal); common in FB captions.
+        for (pattern, radix) in [("&#x([0-9A-Fa-f]+);", 16), ("&#([0-9]+);", 10)] {
+            guard let re = try? NSRegularExpression(pattern: pattern) else { continue }
+            while let m = re.firstMatch(in: out, range: NSRange(out.startIndex..., in: out)),
+                  let full = Range(m.range, in: out), let num = Range(m.range(at: 1), in: out),
+                  let code = UInt32(out[num], radix: radix), let scalar = Unicode.Scalar(code) {
+                out.replaceSubrange(full, with: String(scalar))
+            }
+        }
+        return out
+            .replacingOccurrences(of: "&amp;", with: "&")
             .replacingOccurrences(of: "&lt;", with: "<")
             .replacingOccurrences(of: "&gt;", with: ">")
             .replacingOccurrences(of: "&quot;", with: "\"")
