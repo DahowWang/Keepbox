@@ -109,9 +109,10 @@ struct ContentView: View {
         // Fetch fresh (the @Query result lags a same-tick insert) for the reader.
         let files = (try? modelContext.fetch(
             FetchDescriptor<HTMLFile>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+        let readerPick = (args.firstIndex(of: "-readerPick").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }) ?? "會議"
         if let i = args.firstIndex(of: "-screenshotScreen"), i + 1 < args.count {
             switch args[i + 1] {
-            case "reader": openFile = files.first { $0.name.contains("邀請") } ?? files.first
+            case "reader": openFile = files.first { $0.name.contains(readerPick) } ?? files.first
             case "search": isSearching = true
             default: break
             }

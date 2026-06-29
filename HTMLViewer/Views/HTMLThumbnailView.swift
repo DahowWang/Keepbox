@@ -68,12 +68,16 @@ private struct WebSnapshotView: UIViewRepresentable {
         var loadedContent = ""
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            let config = WKSnapshotConfiguration()
-            config.rect = CGRect(origin: .zero, size: snapshotSize)
-            // Brief delay so first paint (gradients, web fonts) lands in the snapshot.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                webView.takeSnapshot(with: config) { image, _ in
-                    if let image { self?.imageView?.image = image }
+            // Snapshot twice: an early one for instant feedback, a later one to
+            // capture embedded (base64) images that decode after first paint.
+            for delay in [0.35, 1.2] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self else { return }
+                    let config = WKSnapshotConfiguration()
+                    config.rect = CGRect(origin: .zero, size: self.snapshotSize)
+                    webView.takeSnapshot(with: config) { image, _ in
+                        if let image { self.imageView?.image = image }
+                    }
                 }
             }
         }
