@@ -24,18 +24,22 @@ enum LinkCollector {
 
     static func fetchMetadata(_ url: URL, completion: @escaping (PageMeta) -> Void) {
         var done = false
+        // Keep the best meta parsed so far so a slow image download can't wipe
+        // out an already-extracted title/caption when the safety timeout fires.
+        var best = PageMeta()
         let finish: (PageMeta) -> Void = { meta in
             if done { return }; done = true
             DispatchQueue.main.async { completion(meta) }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { finish(PageMeta()) }
+        let partial: (PageMeta) -> Void = { best = $0 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { finish(best) }
 
         let host = url.host ?? ""
         if (host.contains("x.com") || host.contains("twitter.com")), let id = tweetID(url) {
-            fetchTweet(id: id, finish: finish); return
+            fetchTweet(id: id, finish: finish, partial: partial); return
         }
         if host.contains("xiaohongshu.com") || host.contains("xhslink.com") {
-            fetchXiaohongshu(url, finish: finish); return
+            fetchXiaohongshu(url, finish: finish, partial: partial); return
         }
 
         var req = URLRequest(url: url); req.timeoutInterval = 10
@@ -49,9 +53,10 @@ enum LinkCollector {
             var meta = PageMeta()
             meta.title = metaContent(html, keys: ["og:title", "twitter:title", "title"]) ?? htmlTitle(html)
             meta.description = metaContent(html, keys: ["og:description", "twitter:description", "description"])
+            partial(meta)  // preserve text even if the image is slow
             if let imgStr = metaContent(html, keys: ["og:image", "twitter:image", "og:image:url"]),
                let imgURL = URL(string: imgStr, relativeTo: url) {
-                var ir = URLRequest(url: imgURL); ir.timeoutInterval = 8
+                var ir = URLRequest(url: imgURL); ir.timeoutInterval = 7
                 ir.setValue(crawlerUserAgent(for: url), forHTTPHeaderField: "User-Agent")
                 URLSession.shared.dataTask(with: ir) { idata, _, _ in meta.imageData = idata; finish(meta) }.resume()
             } else { finish(meta) }
@@ -67,7 +72,8 @@ enum LinkCollector {
         return nil
     }
 
-    private static func fetchTweet(id: String, finish: @escaping (PageMeta) -> Void) {
+    private static func fetchTweet(id: String, finish: @escaping (PageMeta) -> Void,
+                                   partial: @escaping (PageMeta) -> Void = { _ in }) {
         guard let api = URL(string: "https://cdn.syndication.twimg.com/tweet-result?id=\(id)&lang=en&token=a") else {
             finish(PageMeta()); return
         }
@@ -83,6 +89,7 @@ enum LinkCollector {
             let byline = screen.isEmpty ? name : "\(name) (@\(screen))"
             meta.title = firstLine(text) ?? (byline.isEmpty ? "貼文" : byline)
             meta.description = byline.isEmpty ? text : "\(text)\n\n— \(byline)"
+            partial(meta)
             var imgURLString: String?
             if let photos = json["photos"] as? [[String: Any]], let u = photos.first?["url"] as? String {
                 imgURLString = u
@@ -99,7 +106,8 @@ enum LinkCollector {
         }.resume()
     }
 
-    private static func fetchXiaohongshu(_ url: URL, finish: @escaping (PageMeta) -> Void) {
+    private static func fetchXiaohongshu(_ url: URL, finish: @escaping (PageMeta) -> Void,
+                                         partial: @escaping (PageMeta) -> Void = { _ in }) {
         var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         if comps?.scheme == "http" { comps?.scheme = "https" }
         guard let httpsURL = comps?.url else { finish(PageMeta()); return }
@@ -115,11 +123,12 @@ enum LinkCollector {
             var meta = PageMeta()
             if let t = firstGroup(html, #""title":"((?:[^"\\]|\\.){1,200})""#) { meta.title = jsonUnescape(t) }
             if let d = firstGroup(html, #""desc":"((?:[^"\\]|\\.){0,2000})""#) { meta.description = jsonUnescape(d) }
+            partial(meta)  // preserve note text even if the cover image is slow
             if let raw = firstGroup(html, #""imageList":\[.{0,600}?"url":"(http[^"]+?)""#) {
                 var s = raw.replacingOccurrences(of: "\\u002F", with: "/").replacingOccurrences(of: "\\u002f", with: "/")
                 if s.hasPrefix("http://") { s = "https://" + s.dropFirst("http://".count) }
                 if let imgURL = URL(string: s) {
-                    var ir = URLRequest(url: imgURL); ir.timeoutInterval = 8
+                    var ir = URLRequest(url: imgURL); ir.timeoutInterval = 7
                     URLSession.shared.dataTask(with: ir) { idata, _, _ in meta.imageData = idata; finish(meta) }.resume()
                     return
                 }
