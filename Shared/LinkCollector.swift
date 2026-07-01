@@ -111,21 +111,21 @@ enum LinkCollector {
         var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         if comps?.scheme == "http" { comps?.scheme = "https" }
         guard let httpsURL = comps?.url else { finish(PageMeta()); return }
-        var req = URLRequest(url: httpsURL); req.timeoutInterval = 12
-        req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
-                     forHTTPHeaderField: "User-Agent")
-        // 小紅書 only serves the note (vs an "open in app" redirect) to requests
-        // with browser-like Accept headers; URLSession omits them by default.
-        req.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
-        req.setValue("zh-TW,zh;q=0.9,en;q=0.8", forHTTPHeaderField: "Accept-Language")
-        URLSession.shared.dataTask(with: req) { data, _, _ in
-            guard let data, let html = String(data: data, encoding: .utf8) else { finish(PageMeta()); return }
+        // RED redirects bot requests to an "open in app" page but serves real
+        // browsers the note, populated via JS — so render it in a WKWebView
+        // (same engine as Safari) and read the note from the rendered DOM.
+        WebPageLoader.fetchRenderedHTML(httpsURL, settleDelay: 2.5) { html in
+            guard let html else { finish(PageMeta()); return }
             var meta = PageMeta()
             if let t = firstGroup(html, #""title":"((?:[^"\\]|\\.){1,200})""#) { meta.title = jsonUnescape(t) }
+            else { meta.title = metaContent(html, keys: ["og:title", "title"]) }
             if let d = firstGroup(html, #""desc":"((?:[^"\\]|\\.){0,2000})""#) { meta.description = jsonUnescape(d) }
-            partial(meta)  // preserve note text even if the cover image is slow
-            if let raw = firstGroup(html, #""imageList":\[.{0,600}?"url":"(http[^"]+?)""#) {
-                var s = raw.replacingOccurrences(of: "\\u002F", with: "/").replacingOccurrences(of: "\\u002f", with: "/")
+            else { meta.description = metaContent(html, keys: ["og:description", "description"]) }
+            partial(meta)
+            var imgStr = firstGroup(html, #""imageList":\[.{0,600}?"url":"(http[^"\\]+?)""#)?
+                .replacingOccurrences(of: "\\u002F", with: "/").replacingOccurrences(of: "\\u002f", with: "/")
+            if imgStr == nil { imgStr = metaContent(html, keys: ["og:image"]) }
+            if var s = imgStr {
                 if s.hasPrefix("http://") { s = "https://" + s.dropFirst("http://".count) }
                 if let imgURL = URL(string: s) {
                     var ir = URLRequest(url: imgURL); ir.timeoutInterval = 7
@@ -134,7 +134,7 @@ enum LinkCollector {
                 }
             }
             finish(meta)
-        }.resume()
+        }
     }
 
     // MARK: - Parsing helpers
