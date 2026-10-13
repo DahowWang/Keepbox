@@ -47,6 +47,7 @@ class FileViewModel {
     }
 
     func delete(_ file: HTMLFile, from context: ModelContext) {
+        context.insert(SyncTombstone(recordType: "file", recordID: file.id))
         context.delete(file)
         try? context.save()
     }
@@ -66,11 +67,13 @@ class FileViewModel {
     func addTag(_ tag: Tag, to file: HTMLFile, context: ModelContext) {
         guard !file.tags.contains(where: { $0.id == tag.id }) else { return }
         file.tags.append(tag)
+        file.updatedAt = Date()
         try? context.save()
     }
 
     func removeTag(_ tag: Tag, from file: HTMLFile, context: ModelContext) {
         file.tags.removeAll { $0.id == tag.id }
+        file.updatedAt = Date()
         try? context.save()
     }
 }

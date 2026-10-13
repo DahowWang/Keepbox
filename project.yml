@@ -52,6 +52,10 @@ targets:
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.dahow.keepbox
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      # Mac 版走 Mac Catalyst，與 iOS 共用 bundle id 與程式碼
+      SUPPORTS_MACCATALYST: YES
+      DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
+      CODE_SIGN_ENTITLEMENTS[sdk=macosx*]: HTMLViewer/HTMLViewer-macOS.entitlements
     dependencies:
       - target: ShareExtension
 
@@ -85,3 +89,6 @@ targets:
           - group.com.dahow.keepbox
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.dahow.keepbox.ShareExtension
+      SUPPORTS_MACCATALYST: YES
+      DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
+      CODE_SIGN_ENTITLEMENTS[sdk=macosx*]: ShareExtension/ShareExtension-macOS.entitlements

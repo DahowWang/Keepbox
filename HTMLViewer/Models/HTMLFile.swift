@@ -12,6 +12,11 @@ final class HTMLFile {
     var folder: Folder?
     @Relationship(inverse: \Tag.files) var tags: [Tag]
 
+    // 同步狀態：syncedAt 與 updatedAt 不同代表本機有改動還沒推上去
+    var syncedAt: Date? = nil
+    var contentUploaded: Bool = false
+    var needsContentDownload: Bool = false
+
     init(name: String, content: String, sourceApp: String? = nil) {
         self.id = UUID()
         self.name = name

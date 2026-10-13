@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var actionFile: HTMLFile?
     @State private var showToast = false
     @State private var isSearching = false
+    @State private var showSyncSettings = false
 
     private let importer = FileImporter()
 
@@ -79,9 +80,21 @@ struct ContentView: View {
                 }
             })
         }
+        .sheet(isPresented: $showSyncSettings) {
+            SyncSettingsView()
+        }
         .onAppear {
             importer.importPendingFiles(into: modelContext)
             applyScreenshotStateIfNeeded()
+            SyncService.shared.attach(modelContext)
+        }
+        // 前景時每分鐘拉一次其他裝置的新資料；本機改動由存檔自動觸發
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                await SyncService.shared.syncNow()
+                try? await Task.sleep(for: .seconds(60))
+            }
         }
         // Re-import whenever the app returns to the foreground — a share saved
         // while Keepbox was backgrounded would otherwise wait for a cold launch.
@@ -128,7 +141,8 @@ struct ContentView: View {
                 viewModel: viewModel, allFiles: allFiles, tags: tags,
                 layout: layout, setLayout: { layout = $0 },
                 onOpen: { openFile = $0 }, onLong: { actionFile = $0 },
-                onSearch: { withAnimation { isSearching = true } }
+                onSearch: { withAnimation { isSearching = true } },
+                onSync: { showSyncSettings = true }
             )
         case .folders:
             FolderGridView(

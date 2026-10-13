@@ -6,12 +6,16 @@ final class Tag {
     var id: UUID
     var name: String
     var colorHex: String
+    var updatedAt: Date = Date(timeIntervalSince1970: 0)
     var files: [HTMLFile]
+
+    var syncedAt: Date? = nil
 
     init(name: String, colorHex: String = "#4A90D9") {
         self.id = UUID()
         self.name = name
         self.colorHex = colorHex
+        self.updatedAt = Date()
         self.files = []
     }
 }

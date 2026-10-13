@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "keepbox-sync",
+  "account_id": "f1dfeec7dfb23df51c5af26d332e7e77",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-20",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "keepbox-sync",
+      "database_id": "4f1c6ea0-06f5-43b9-986f-663699239ee3",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "CONTENT", "bucket_name": "keepbox-content" }
+  ]
+}

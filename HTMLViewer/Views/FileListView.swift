@@ -12,6 +12,7 @@ struct HomeView: View {
     let onOpen: (HTMLFile) -> Void
     let onLong: (HTMLFile) -> Void
     let onSearch: () -> Void
+    let onSync: () -> Void
 
     private var files: [HTMLFile] { viewModel.filteredFiles(allFiles) }
 
@@ -56,6 +57,7 @@ struct HomeView: View {
                     .foregroundStyle(Color.kbText(scheme))
             }
             Spacer()
+            SyncStatusButton(action: onSync)
             if viewModel.selectedFolder == nil && viewModel.selectedTag == nil {
                 viewToggle
             }
