@@ -1,10 +1,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - App-level enums
-enum KBTab { case all, folders, tags }
-enum KBLayout { case grid, gallery, list }
-
 // MARK: - Root view
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,14 +10,15 @@ struct ContentView: View {
     @Query private var folders: [Folder]
     @Query private var tags: [Tag]
 
+    /// 每個 scene 的瀏覽狀態快照（版本化 JSON）；不含同步憑證，也不跨裝置同步。
+    @SceneStorage("keepbox.libraryState") private var storedState = ""
+    @State private var state = LibrarySceneState()
+    @State private var session = ReaderSession()
     @State private var viewModel = FileViewModel()
-    @State private var tab: KBTab = .all
-    @State private var layout: KBLayout = .list
-    @State private var openFile: HTMLFile?
+    @State private var restored = false
     @State private var showImport = false
     @State private var actionFile: HTMLFile?
-    @State private var showToast = false
-    @State private var isSearching = false
+    @State private var toastText: String?
     @State private var showSyncSettings = false
 
     private let importer = FileImporter()
@@ -30,32 +27,29 @@ struct ContentView: View {
         ZStack(alignment: .bottom) {
             Color.kbBg(scheme).ignoresSafeArea()
 
-            if isSearching {
-                SearchView(
-                    allFiles: allFiles, viewModel: viewModel,
-                    onBack: { withAnimation { isSearching = false } },
-                    onOpen: { f in withAnimation { isSearching = false }; openFile = f }
-                )
-                .transition(.opacity)
-            } else if let file = openFile {
-                ReaderView(file: file, onBack: { openFile = nil })
-                    .transition(.opacity)
-            } else {
-                ZStack(alignment: .bottom) {
-                    tabContent
-                    bottomBar
-                }
-            }
+            #if targetEnvironment(macCatalyst)
+            MacLibraryView(
+                state: state, viewModel: viewModel, allFiles: allFiles, folders: folders, tags: tags,
+                onImport: { showImport = true },
+                onSync: { showSyncSettings = true }
+            )
+            #else
+            AdaptiveLibraryView(
+                state: state, session: session, viewModel: viewModel,
+                allFiles: allFiles, folders: folders, tags: tags,
+                onImport: { showImport = true },
+                onSync: { showSyncSettings = true },
+                onLongPress: { actionFile = $0 }
+            )
+            #endif
         }
-        .animation(.easeInOut(duration: 0.2), value: isSearching)
-        .animation(.easeInOut(duration: 0.2), value: openFile?.id)
         .overlay {
             if let file = actionFile {
                 ActionMenuView(
                     file: file, viewModel: viewModel,
                     folders: folders, tags: tags,
                     onClose: { actionFile = nil },
-                    onOpen: { f in actionFile = nil; openFile = f }
+                    onOpen: { f in actionFile = nil; state.open(f) }
                 )
                 .ignoresSafeArea()
                 .transition(.opacity)
@@ -63,30 +57,44 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if showToast {
-                toastBadge
+            if let toastText {
+                toastBadge(toastText)
                     .padding(.bottom, 120)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.3), value: showToast)
             }
         }
+        .animation(.spring(response: 0.3), value: toastText)
+        // sheet 掛在穩定的根層：摺疊／展開切換版面時不會被重建，匯入草稿不會遺失。
         .sheet(isPresented: $showImport) {
             ImportSheetView(modelContext: modelContext, onSaved: {
                 showImport = false
-                withAnimation { showToast = true }
-                Task {
-                    try? await Task.sleep(nanoseconds: 2_200_000_000)
-                    withAnimation { showToast = false }
-                }
+                flashToast(state.filter == .all ? "已存入 Keepbox" : "已存入全部收藏")
             })
         }
         .sheet(isPresented: $showSyncSettings) {
             SyncSettingsView()
         }
         .onAppear {
+            if !restored {
+                state.restore(from: storedState)
+                restored = true
+            }
+            session.onAnchor = { [state] fileID, anchor in
+                state.setAnchor(anchor, for: fileID)
+            }
             importer.importPendingFiles(into: modelContext)
             applyScreenshotStateIfNeeded()
             SyncService.shared.attach(modelContext)
+            reconcile()
+        }
+        .onChange(of: state.snapshot) { _, _ in storedState = state.encodedSnapshot() }
+        .onChange(of: allFiles.map(\.id)) { _, _ in reconcile() }
+        .onChange(of: folders.map(\.id)) { _, _ in reconcile() }
+        .onChange(of: tags.map(\.id)) { _, _ in reconcile() }
+        .onChange(of: state.notice) { _, notice in
+            guard let notice else { return }
+            state.notice = nil
+            flashToast(notice)
         }
         // 前景時每分鐘拉一次其他裝置的新資料；本機改動由存檔自動觸發
         .task(id: scenePhase) {
@@ -106,6 +114,22 @@ struct ContentView: View {
         }
     }
 
+    /// 被刪除的收藏或分類：關閉閱讀／退回全部收藏，不顯示空白假文章。
+    private func reconcile() {
+        guard restored else { return }
+        state.reconcile(fileIDs: Set(allFiles.map(\.id)),
+                        folderIDs: Set(folders.map(\.id)),
+                        tagIDs: Set(tags.map(\.id)))
+    }
+
+    private func flashToast(_ text: String) {
+        toastText = text
+        Task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            if toastText == text { toastText = nil }
+        }
+    }
+
     // DEBUG-only: drive initial UI state for App Store screenshots via launch args.
     private func applyScreenshotStateIfNeeded() {
         #if DEBUG
@@ -113,9 +137,9 @@ struct ContentView: View {
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-screenshotLayout"), i + 1 < args.count {
             switch args[i + 1] {
-            case "grid": layout = .grid
-            case "gallery": layout = .gallery
-            case "list": layout = .list
+            case "grid": state.layout = .grid
+            case "gallery": state.layout = .gallery
+            case "list": state.layout = .list
             default: break
             }
         }
@@ -125,90 +149,17 @@ struct ContentView: View {
         let readerPick = (args.firstIndex(of: "-readerPick").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }) ?? "會議"
         if let i = args.firstIndex(of: "-screenshotScreen"), i + 1 < args.count {
             switch args[i + 1] {
-            case "reader": openFile = files.first { $0.name.contains(readerPick) } ?? files.first
-            case "search": isSearching = true
+            case "reader":
+                if let file = files.first(where: { $0.name.contains(readerPick) }) ?? files.first { state.open(file) }
+            case "search": state.searchActive = true
             default: break
             }
         }
         #endif
     }
 
-    @ViewBuilder
-    private var tabContent: some View {
-        switch tab {
-        case .all:
-            HomeView(
-                viewModel: viewModel, allFiles: allFiles, tags: tags,
-                layout: layout, setLayout: { layout = $0 },
-                onOpen: { openFile = $0 }, onLong: { actionFile = $0 },
-                onSearch: { withAnimation { isSearching = true } },
-                onSync: { showSyncSettings = true }
-            )
-        case .folders:
-            FolderGridView(
-                folders: folders.filter { $0.parent == nil }, allFiles: allFiles,
-                onOpen: { folder in
-                    viewModel.selectedFolder = folder
-                    viewModel.selectedTag = nil
-                    withAnimation { tab = .all }
-                }
-            )
-        case .tags:
-            TagListView(
-                tags: tags, allFiles: allFiles,
-                onPick: { tag in
-                    viewModel.selectedTag = tag
-                    viewModel.selectedFolder = nil
-                    withAnimation { tab = .all }
-                }
-            )
-        }
-    }
-
-    // MARK: - Bottom bar
-    private var bottomBar: some View {
-        ZStack(alignment: .bottomTrailing) {
-            HStack(spacing: 0) {
-                tabButton(.all, "全部", "doc.text")
-                tabButton(.folders, "資料夾", "folder")
-                tabButton(.tags, "標籤", "tag")
-            }
-            .frame(height: 62)
-            .padding(.horizontal, 24)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.14), radius: 20, x: 0, y: 8)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
-
-            Button { showImport = true } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
-                    .background(Color.kbAccent)
-                    .clipShape(RoundedRectangle(cornerRadius: 17))
-                    .shadow(color: Color.kbAccent.opacity(0.45), radius: 14, x: 0, y: 8)
-            }
-            .padding(.trailing, 22)
-            .padding(.bottom, 100)
-        }
-    }
-
-    @ViewBuilder
-    private func tabButton(_ t: KBTab, _ label: String, _ icon: String) -> some View {
-        Button { withAnimation(.easeInOut(duration: 0.18)) { tab = t } } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon).font(.system(size: 20))
-                Text(label).font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(tab == t ? Color.kbAccent : Color.secondary)
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var toastBadge: some View {
-        Label("已存入 Keepbox", systemImage: "checkmark")
+    private func toastBadge(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark")
             .font(.system(size: 14.5, weight: .bold))
             .foregroundStyle(.white)
             .padding(.vertical, 11).padding(.horizontal, 20)

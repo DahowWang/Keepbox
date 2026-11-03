@@ -21,7 +21,7 @@ struct TagListView: View {
                     tagList
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
         .background(Color.kbBg(scheme))

@@ -1,21 +1,20 @@
 import SwiftUI
 
+/// 外螢幕／單欄搜尋。query 與 scope 存在 scene state：
+/// 取消只關閉搜尋畫面、保留草稿；摺疊／展開後寬版看到相同結果。
 struct SearchView: View {
     @Environment(\.colorScheme) private var scheme
+    @Bindable var state: LibrarySceneState
     let allFiles: [HTMLFile]
-    @Bindable var viewModel: FileViewModel
     let onBack: () -> Void
     let onOpen: (HTMLFile) -> Void
 
-    @State private var query = ""
     @FocusState private var focused: Bool
 
+    private var query: String { state.query }
     private var results: [HTMLFile] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return [] }
-        return allFiles.filter {
-            $0.name.lowercased().contains(q) || $0.content.lowercased().contains(q)
-        }
+        guard !state.effectiveQuery.isEmpty else { return [] }
+        return state.results(from: allFiles)
     }
 
     var body: some View {
@@ -25,19 +24,21 @@ struct SearchView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(Color.kbSub(scheme))
-                    TextField("搜尋檔案名稱或內容", text: $query)
+                    TextField("搜尋檔案名稱或內容", text: $state.query)
                         .focused($focused)
                         .font(.system(size: 16))
                         .foregroundStyle(Color.kbText(scheme))
                     if !query.isEmpty {
-                        Button { query = "" } label: {
+                        Button { state.query = "" } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(Color.kbSub(scheme))
+                                .frame(width: 44, height: 44)
                         }
+                        .accessibilityLabel("清除搜尋")
                     }
                 }
-                .padding(.horizontal, 12)
-                .frame(height: 42)
+                .padding(.leading, 12)
+                .frame(minHeight: 44)
                 .background(scheme == .dark ? Color.white.opacity(0.1) : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .shadow(color: scheme == .light ? .black.opacity(0.06) : .clear, radius: 3)
@@ -49,6 +50,14 @@ struct SearchView: View {
             .padding(.horizontal, 16)
             .padding(.top, 20).padding(.bottom, 12)
 
+            if state.filter != .all {
+                Picker("搜尋範圍", selection: $state.scope) {
+                    ForEach(SearchScope.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16).padding(.bottom, 10)
+            }
+
             // Results
             ScrollView {
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -59,12 +68,23 @@ struct SearchView: View {
                     resultsView
                 }
             }
+            .scrollPosition(id: anchorBinding, anchor: .top)
             .scrollIndicators(.hidden)
         }
         .background(Color.kbBg(scheme).ignoresSafeArea())
         .onAppear {
+            // 只有新開搜尋（沒有草稿）才自動叫出鍵盤；從文章返回或摺疊切換時不搶焦點。
+            guard state.query.isEmpty else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focused = true }
         }
+    }
+
+    /// 搜尋結果的捲動錨點：與寬版共用同一個 key（filter＋query＋scope＋sort＋layout），
+    /// 從文章返回或摺疊切換時回到原本那一列。
+    private var anchorBinding: Binding<UUID?> {
+        let key = state.listAnchorKey
+        return Binding(get: { state.listAnchors[key] },
+                       set: { if let id = $0 { state.listAnchors[key] = id } })
     }
 
     // MARK: - Results list
@@ -107,6 +127,7 @@ struct SearchView: View {
                     }
                 }
             }
+            .scrollTargetLayout()
             .background(Color.kbSurface(scheme))
             .clipShape(RoundedRectangle(cornerRadius: 18))
             .shadow(color: Color.kbCardShadow(scheme), radius: 12, x: 0, y: 4)

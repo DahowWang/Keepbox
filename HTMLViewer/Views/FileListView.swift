@@ -4,17 +4,18 @@ import SwiftData
 // MARK: - HomeView (全部 tab content)
 struct HomeView: View {
     @Environment(\.colorScheme) private var scheme
-    @Bindable var viewModel: FileViewModel
+    @Bindable var state: LibrarySceneState
     let allFiles: [HTMLFile]
+    let folders: [Folder]
     let tags: [Tag]
-    let layout: KBLayout
-    let setLayout: (KBLayout) -> Void
     let onOpen: (HTMLFile) -> Void
     let onLong: (HTMLFile) -> Void
     let onSearch: () -> Void
     let onSync: () -> Void
 
-    private var files: [HTMLFile] { viewModel.filteredFiles(allFiles) }
+    private var files: [HTMLFile] { state.results(from: allFiles) }
+    private var layout: KBLayout { state.layout }
+    private var selectedFolder: Folder? { state.folderID().flatMap { id in folders.first { $0.id == id } } }
 
     var body: some View {
         ScrollView {
@@ -22,7 +23,7 @@ struct HomeView: View {
                 headerRow
                 searchBar
                 filterChips
-                if let folder = viewModel.selectedFolder {
+                if let folder = selectedFolder {
                     Text(folder.name)
                         .font(.system(size: 26, weight: .heavy))
                         .foregroundStyle(Color.kbText(scheme))
@@ -31,10 +32,18 @@ struct HomeView: View {
                 }
                 contentArea
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, 16)
         }
+        .scrollPosition(id: anchorBinding, anchor: .top)
         .scrollIndicators(.hidden)
         .background(Color.kbBg(scheme))
+    }
+
+    /// 返回首頁時回到原本看到的那一則。
+    private var anchorBinding: Binding<UUID?> {
+        let key = state.listAnchorKey
+        return Binding(get: { state.listAnchors[key] },
+                       set: { if let id = $0 { state.listAnchors[key] = id } })
     }
 
     // MARK: - Header
@@ -58,7 +67,7 @@ struct HomeView: View {
             }
             Spacer()
             SyncStatusButton(action: onSync)
-            if viewModel.selectedFolder == nil && viewModel.selectedTag == nil {
+            if state.filter == .all {
                 viewToggle
             }
         }
@@ -80,7 +89,7 @@ struct HomeView: View {
     @ViewBuilder
     private func toggleBtn(_ l: KBLayout, _ icon: String) -> some View {
         let on = layout == l
-        Button { setLayout(l) } label: {
+        Button { state.layout = l } label: {
             Image(systemName: icon)
                 .font(.system(size: 14))
                 .foregroundStyle(on ? Color.kbAccent : Color.secondary)
@@ -88,7 +97,11 @@ struct HomeView: View {
                 .background(on ? Color.kbSurface(scheme) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: on && scheme == .light ? .black.opacity(0.12) : .clear, radius: 3, x: 0, y: 1)
+                .frame(height: 44)
+                .contentShape(Rectangle())
         }
+        .accessibilityLabel(l == .grid ? "網格" : l == .gallery ? "圖文" : "清單")
+        .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 
     // MARK: - Search bar
@@ -123,13 +136,10 @@ struct HomeView: View {
 
     @ViewBuilder
     private func chip(label: String, tag: Tag?) -> some View {
-        let isOn = tag == nil
-            ? (viewModel.selectedTag == nil && viewModel.selectedFolder == nil)
-            : viewModel.selectedTag?.id == tag?.id
+        let isOn = tag.map { state.filter == .tag($0.id) } ?? (state.filter == .all)
         Button {
             withAnimation(.easeInOut(duration: 0.15)) {
-                viewModel.selectedTag = tag
-                viewModel.selectedFolder = nil
+                state.select(tag.map { .tag($0.id) } ?? .all)
             }
         } label: {
             Text(label)
@@ -162,6 +172,7 @@ struct HomeView: View {
                 KBGridCard(file: file, onOpen: { onOpen(file) }, onLong: { onLong(file) })
             }
         }
+        .scrollTargetLayout()
         .padding(.horizontal, 16)
     }
 
@@ -172,6 +183,7 @@ struct HomeView: View {
                           onOpen: { onOpen(file) }, onLong: { onLong(file) })
             }
         }
+        .scrollTargetLayout()
         .background(Color.kbSurface(scheme))
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .shadow(color: Color.kbCardShadow(scheme), radius: 12, x: 0, y: 4)
@@ -183,10 +195,12 @@ struct HomeView: View {
         if let featured = files.first {
             VStack(spacing: 14) {
                 KBFeaturedCard(file: featured, onOpen: { onOpen(featured) }, onLong: { onLong(featured) })
+                    .id(featured.id)
                 ForEach(Array(files.dropFirst())) { file in
                     KBGalleryRow(file: file, onOpen: { onOpen(file) }, onLong: { onLong(file) })
                 }
             }
+            .scrollTargetLayout()
             .padding(.horizontal, 16)
         }
     }

@@ -58,6 +58,22 @@ targets:
       CODE_SIGN_ENTITLEMENTS[sdk=macosx*]: HTMLViewer/HTMLViewer-macOS.entitlements
     dependencies:
       - target: ShareExtension
+    scheme:
+      testTargets:
+        - KeepboxTests
+
+  # 純邏輯單元測試：版面斷點、摺痕格子、來源辨識、scene state。
+  KeepboxTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: KeepboxTests
+    dependencies:
+      - target: HTMLViewer
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      PRODUCT_BUNDLE_IDENTIFIER: com.dahow.keepbox.tests
 
   ShareExtension:
     type: app-extension

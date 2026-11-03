@@ -31,7 +31,7 @@ struct FolderGridView: View {
                     .padding(.horizontal, 16)
                 }
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
         .background(Color.kbBg(scheme))

@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ImportSheetView: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dismiss) private var dismiss
     let modelContext: ModelContext
     let onSaved: () -> Void
 
@@ -37,7 +38,7 @@ struct ImportSheetView: View {
             .toolbar {
                 if step == .source {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("取消", action: onSaved)
+                        Button("取消") { dismiss() }
                     }
                 }
                 if step == .paste || step == .link {
