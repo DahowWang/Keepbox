@@ -9,12 +9,7 @@ struct FolderGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("資料夾")
-                    .font(.system(size: 26, weight: .heavy))
-                    .foregroundStyle(Color.kbText(scheme))
-                    .padding(.horizontal, 18)
-                    .padding(.top, 28).padding(.bottom, 14)
-
+                // 標題由系統導覽列（navigationTitle）提供。
                 if folders.isEmpty {
                     emptyState
                 } else {
@@ -31,7 +26,7 @@ struct FolderGridView: View {
                     .padding(.horizontal, 16)
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.top, 8).padding(.bottom, 16)
         }
         .scrollIndicators(.hidden)
         .background(Color.kbBg(scheme))

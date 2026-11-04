@@ -46,18 +46,33 @@ struct SyncSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                #if targetEnvironment(macCatalyst)
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        guard save() else { return }
-                        sync.requestSync(after: .zero)
-                        dismiss()
-                    }
+                    Button("儲存", action: saveAndClose)
                 }
+                #else
+                // iOS：標題＋圖示的系統項目，Duo 外螢幕直排時取消在上、儲存其次（§13.3 F）。
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Label("取消", systemImage: "xmark") }
+                }
+                .kbPriority(.high)
+                ToolbarItem(placement: .kbConfirm) {
+                    Button(action: saveAndClose) { Label("儲存", systemImage: "checkmark") }
+                }
+                .kbPriority(.high)
+                #endif
             }
+            .kbToolbarCompression(prefersTabBar: false)
         }
+    }
+
+    private func saveAndClose() {
+        guard save() else { return }
+        sync.requestSync(after: .zero)
+        dismiss()
     }
 
     private var statusText: String {

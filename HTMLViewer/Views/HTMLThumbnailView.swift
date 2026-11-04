@@ -14,6 +14,8 @@ struct HTMLThumbnailView: View {
     var body: some View {
         WebSnapshotView(htmlContent: htmlContent, width: width, height: height)
             .frame(width: width, height: height)
+            // 縮圖只是圖：不攔截觸控，點在縮圖上也會觸發外層卡片按鈕。
+            .allowsHitTesting(false)
     }
 }
 
@@ -30,6 +32,7 @@ private struct WebSnapshotView: UIViewRepresentable {
         let container = UIView(frame: CGRect(x: 0, y: 0, width: width, height: height))
         container.backgroundColor = .white
         container.clipsToBounds = true
+        container.isUserInteractionEnabled = false
 
         // Capture the top region at the page's natural width, matching the box aspect.
         let snapHeight = renderWidth * height / max(width, 1)

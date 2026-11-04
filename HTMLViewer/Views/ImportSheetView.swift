@@ -14,8 +14,20 @@ struct ImportSheetView: View {
     @State private var showFilePicker = false
     @State private var linkURL = ""
     @State private var isFetching = false
+    /// 成功畫面的自動關閉與手動「完成」只通知一次。
+    @State private var didNotifySaved = false
 
     enum Step { case source, link, paste, done }
+
+    /// iOS：取消／返回／提交都是系統工具列項目（Duo 外螢幕會直排，§13.3 E）。
+    /// Mac Catalyst 維持原本的文字按鈕與內容底部大按鈕。
+    #if targetEnvironment(macCatalyst)
+    private static let usesSystemBar = false
+    #else
+    private static let usesSystemBar = true
+    #endif
+
+    private var trimmedHTML: String { pastedHTML.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private var normalizedURL: URL? {
         let t = linkURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,26 +47,8 @@ struct ImportSheetView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if step == .source {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("取消") { dismiss() }
-                    }
-                }
-                if step == .paste || step == .link {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            step = .source
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                Text("返回")
-                            }
-                            .foregroundStyle(Color.kbAccent)
-                        }
-                    }
-                }
-            }
+            .toolbar { toolbarContent }
+            .kbToolbarCompression(prefersTabBar: false)
         }
         .presentationDetents([.fraction(0.7), .large])
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [UTType.html]) { result in
@@ -67,6 +61,70 @@ struct ImportSheetView: View {
             pastedHTML = content
             saveFile()
         }
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if Self.usesSystemBar {
+            switch step {
+            case .source:
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Label("取消匯入", systemImage: "xmark") }
+                }
+                .kbPriority(.high)
+            case .link, .paste:
+                ToolbarItem(placement: .cancellationAction) {
+                    // 返回來源不清空草稿。
+                    Button { step = .source } label: { Label("返回來源", systemImage: "chevron.backward") }
+                }
+                .kbPriority(.high)
+                ToolbarItem(placement: .kbConfirm) {
+                    if step == .link {
+                        Button { collectLink() } label: {
+                            Label(isFetching ? "擷取中…" : "擷取並存入", systemImage: "square.and.arrow.down")
+                        }
+                        .disabled(normalizedURL == nil || isFetching)
+                        .accessibilityValue(isFetching ? "擷取中" : "")
+                    } else {
+                        Button { saveFile() } label: { Label("存入 Keepbox", systemImage: "square.and.arrow.down") }
+                            .disabled(trimmedHTML.isEmpty)
+                    }
+                }
+                .kbPriority(.high)
+            case .done:
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { notifySaved() } label: { Label("完成", systemImage: "checkmark") }
+                }
+                .kbPriority(.high)
+            }
+        } else {
+            if step == .source {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
+            if step == .paste || step == .link {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        step = .source
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("返回")
+                        }
+                        .foregroundStyle(Color.kbAccent)
+                    }
+                }
+            }
+        }
+    }
+
+    private func notifySaved() {
+        guard !didNotifySaved else { return }
+        didNotifySaved = true
+        onSaved()
     }
 
     // MARK: - Source selection
@@ -151,20 +209,29 @@ struct ImportSheetView: View {
 
             Spacer()
 
-            Button { collectLink() } label: {
-                HStack(spacing: 8) {
-                    if isFetching { ProgressView().tint(.white) }
-                    Text(isFetching ? "擷取中…" : "擷取並存入")
-                        .font(.system(size: 16.5, weight: .bold))
+            if !Self.usesSystemBar {
+                Button { collectLink() } label: {
+                    HStack(spacing: 8) {
+                        if isFetching { ProgressView().tint(.white) }
+                        Text(isFetching ? "擷取中…" : "擷取並存入")
+                            .font(.system(size: 16.5, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 50)
+                    .background(normalizedURL == nil ? Color.kbAccent.opacity(0.4) : Color.kbAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .shadow(color: Color.kbAccent.opacity(normalizedURL == nil ? 0 : 0.5), radius: 12)
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity).frame(height: 50)
-                .background(normalizedURL == nil ? Color.kbAccent.opacity(0.4) : Color.kbAccent)
-                .clipShape(RoundedRectangle(cornerRadius: 15))
-                .shadow(color: Color.kbAccent.opacity(normalizedURL == nil ? 0 : 0.5), radius: 12)
+                .disabled(normalizedURL == nil || isFetching)
+                .padding(.horizontal, 20).padding(.bottom, 30)
+            } else if isFetching {
+                // 擷取進度留在表單內容；提交按鈕在工具列。
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("擷取中…").font(.subheadline).foregroundStyle(Color.kbSub(scheme))
+                }
+                .padding(.horizontal, 20).padding(.bottom, 30)
             }
-            .disabled(normalizedURL == nil || isFetching)
-            .padding(.horizontal, 20).padding(.bottom, 30)
         }
         .background(Color.kbBg(scheme))
     }
@@ -220,17 +287,18 @@ struct ImportSheetView: View {
 
             Spacer()
 
-            let trimmed = pastedHTML.trimmingCharacters(in: .whitespacesAndNewlines)
-            Button { saveFile() } label: {
-                Text("存入 Keepbox")
-                    .font(.system(size: 16.5, weight: .bold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).frame(height: 50)
-                    .background(trimmed.isEmpty ? Color.kbAccent.opacity(0.4) : Color.kbAccent)
-                    .clipShape(RoundedRectangle(cornerRadius: 15))
-                    .shadow(color: Color.kbAccent.opacity(trimmed.isEmpty ? 0 : 0.5), radius: 12)
+            if !Self.usesSystemBar {
+                Button { saveFile() } label: {
+                    Text("存入 Keepbox")
+                        .font(.system(size: 16.5, weight: .bold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 50)
+                        .background(trimmedHTML.isEmpty ? Color.kbAccent.opacity(0.4) : Color.kbAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+                        .shadow(color: Color.kbAccent.opacity(trimmedHTML.isEmpty ? 0 : 0.5), radius: 12)
+                }
+                .disabled(trimmedHTML.isEmpty)
+                .padding(.horizontal, 20).padding(.bottom, 30)
             }
-            .disabled(trimmed.isEmpty)
-            .padding(.horizontal, 20).padding(.bottom, 30)
         }
         .background(Color.kbBg(scheme))
     }
@@ -253,7 +321,7 @@ struct ImportSheetView: View {
         }
         .frame(maxWidth: .infinity)
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { onSaved() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { notifySaved() }
         }
     }
 

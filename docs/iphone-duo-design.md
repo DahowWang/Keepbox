@@ -430,3 +430,261 @@ Phase B 行為：在收藏長按／右鍵的更多選單增加「在新視窗開
 4. 搜尋：照建議，預設全部收藏，可切換到目前分類，跨螢幕保留選擇；Mac 一起改。
 5. Pencil 註記：本版不做。
 6. 模擬器：同意下載 iOS 27.2 simulator runtime 供 Duo 驗收。
+
+## 13. Duo 直式側邊工具列
+
+日期：2026-11-04。階段：Phase A.2 設計交付，尚未實作。本章依 `docs/duo-vertical-bar-brief.md`、目前程式與本機 iOS 27.2 SDK 撰寫；build 20 真機現象及外螢幕 W=382／硬體寬466、約84pt側邊區域為需求提供的量測，非本次重新測得。
+
+### 13.1 目標、優先順序與外觀決策
+
+**將 iOS 的導覽與工具動作交給系統容器。** 外螢幕閱讀的返回位於系統直式列頂端，主要動作其次；一般 iPhone 顯示正常水平導覽與工具列。約84pt僅是觀察值，不自行畫一條84pt側欄、不補 padding 填滿它，也不以裝置名稱或 W 推測工具列在哪邊。
+
+本章取代 §3.1 的自訂膠囊底列／浮動新增、§3.3 的閱讀自訂橫列，以及 §4 對觸控 ReaderChrome 的自訂 bar 選項；其他資料與閱讀規則維持。600／760／1100pt 斷點、ReaderSession／WKWebView 生命週期、位置復原、SceneStorage schema、外螢幕直式限定、多視窗 Phase B、Mac 外觀均不變。本章所列未決項目是視覺與操作排序的建議值，並非已經大皓確認。
+
+系統 bar 隨姿態決定軸向；內螢幕橫放可直排，內螢幕直放可回水平，不能要求所有內螢幕姿態一律直排。SplitView 只有 detail 欄參與側邊 bar；側欄／清單內容不全數搬過去。外螢幕 sheet 與內螢幕置中 sheet 也可能有不同軸向。[Apple：Raise the bar with iPhone Duo](https://developer.apple.com/videos/play/tech-talks/111462/)
+
+**一般 iPhone 的建議外觀**：iOS 17 起一起改用原生 TabView 與 NavigationStack，保留紫色 tint、內容卡片、三分頁、三排列與所有動作。iOS 17–18 使用該版本原生外觀，iOS 26 採系統 Liquid Glass；不人工模擬玻璃、不再疊一條自訂膠囊。這是刻意的外觀改版，不將它描述為像素完全不變。iPad 沿用 M/L 分類架構，不另外套一層三分頁側欄。
+
+### 13.2 容器與導航整合
+
+1. **N 的瀏覽根層**：`TabView(selection:)` 綁定既有 state.tab，三個分頁各有 `NavigationStack`，標籤為「全部／資料夾／標籤」。以 iOS 17 可用的 `.tabItem { Label(...) }`＋`.tag(...)` 建立，不為了新版 Tab 語法提高部署版本。首頁改 `.navigationTitle("Keepbox")`，分類名稱留內容區，移除 HomeView 重複的大標題工具按鈕。
+2. **搜尋與閱讀**：在目前分頁的 stack 中呈現目的頁，目的頁隱藏系統 tab bar（`.toolbar(.hidden, for: .tabBar)`），回瀏覽才恢復；搜尋不新增第四個分頁。收藏從哪個分頁開啟，就回哪個來源；沿用 state 的 query/scope/filter/returnContext 與已修正的 closeReader(anchoringWithin:)。
+3. **單一導航真值**：stack path／destination binding 只做既有 state 的呈現映射，不新增另一份可寫 selectedFileID、searchActive、readerPresented 或獨立 SceneStorage 快照。push／pop 的 binding setter 呼叫現有 open／closeReader／搜尋取消動作；同步刪除導致 state 關閉時，不可再由 pop 重複還原。若啟用邊緣返回手勢，必須走相同返回語意。
+4. **避免雙返回**：正常 push 用系統自帶 back；不要再加第二顆 chevron。若 compact/regular 切換使文章直接成為 stack 根頁而無系統 back，才用 `.cancellationAction` 補單一「返回收藏／返回搜尋」。該按鈕執行原有返回流程，不額外 dismiss 整個 scene。表格中的「返回」是這兩種表示的同一動作。
+5. **M/L**：保留目前 policy 控制的 NavigationSplitView／NavigationStack 切換。將閱讀動作定義為共用 `ToolbarContent`，由 `WideLibraryView` 的 **detail 根頁** 統一掛 `.toolbar`；不要讓 WideReaderView 內的 HStack 或嵌入的另一個 NavigationStack 嘗試參與直排。瀏覽時掛瀏覽組，閱讀時掛閱讀組；不把兩組全加上而產生重複新增／分享／關閉。
+6. **穩定 presenter**：匯入與同步 sheet 繼續掛穩定根層；popover／標籤 sheet 只變入口呈現，保留草稿與既有操作。TabView 非作用中分頁不能意外掛載第二個 ReaderWebView。N↔M/L 換容器仍沿用同一 ReaderSession，不能以改 toolbar 為由重載 HTML。
+7. **舊自訂列移除範圍**：N 的 bottomBar／浮動新增、ReaderView 的 topBar／readerToolbar、WideReaderView 的閱讀 toolbar HStack，改由原生列取代。文章內容、文字大小選項、標籤操作、內容更新橫幅繼續使用。搜尋輸入與範圍 picker 留內容區，不做直式字串輸入框。
+
+### 13.3 項目規格與表格讀法
+
+- 每個可搬入 bar 的 Button／Menu／ShareLink 都提供完整 `Label(標題, systemImage:)`；不要只放 Image 再補 accessibilityLabel。標題即下表文字，按鈕內不放另一組 HStack 動作。
+- 下表 axis／priority 作用在 **ToolbarItem／ToolbarItemGroup（ToolbarContent）**，不是貼到任意 View 上。標準 Label 預設 `.automatic`；只有保留自訂同步狀態表示的項目採 `.verticalPreferred`，仍需圖示＋標題與可供系統溢出顯示的語意表示。
+- 「低／自動／高」對應 `.low`／`.automatic`／`.high`，是保留優先權，不是保證固定座標或永不溢出。只把主要導覽／主動作設高，避免所有項目都高而失去效果。
+- 「系統」表示正常 toolbar 項目，由系統必要時收入同一個 overflow；「固定」表示只宣告在唯一 `ToolbarOverflowMenu` 內。其內部是一般 Menu／Button View，沒有個別 placement、axisBehavior 或 ToolbarContent visibilityPriority，表內寫「—」以免 Claude 套錯型別。不得把同一動作同時放正常列與固定 overflow。
+- badge「—」表示不用。僅閱讀的「標籤」可使用目前已套用的標籤數 n，n=0 隱藏；27.1 路徑用 `.badge(n)`，不把「標籤（3）」寫進標題。舊版省略 toolbar badge、保留 VoiceOver 數量。所有分頁不顯示總收藏數 badge，避免誤解為未讀數。
+- 非 toolbar 的內容操作仍列於表中；placement／axis／priority 為「內容／—／—」，不強行移進直式列。表單內數量與結果數是內容文字，不受 badge 規則限制。
+
+#### A. 三個瀏覽分頁（N）與 M/L 瀏覽
+
+| 畫面／項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| 全部分頁 | TabView tabItem | 全部／doc.text | —（系統 tab） | — | 系統 tab 壓縮 | — |
+| 資料夾分頁 | TabView tabItem | 資料夾／folder | — | — | 系統 tab 壓縮 | — |
+| 標籤分頁 | TabView tabItem | 標籤／tag | — | — | 系統 tab 壓縮 | — |
+| 三分頁共通新增 | .topBarPinnedTrailing | 新增收藏／plus | .automatic | 高 | 系統 | — |
+| 三分頁共通搜尋 | .topBarTrailing | 搜尋收藏／magnifyingglass | .automatic | 自動 | 系統 | — |
+| 三分頁共通同步 | .topBarTrailing | 同步設定／arrow.triangle.2.circlepath | .verticalPreferred | 自動；失敗時高 | 系統 | — |
+| 全部：排列 Menu | .bottomBar | 排列／square.grid.2x2 | .automatic | 低 | 系統 | — |
+| 全部：排序 Menu | .bottomBar | 排序／arrow.up.arrow.down | .automatic | 低 | 系統 | — |
+| M/L：叫出分類（分類未常駐時） | .topBarLeading | 分類／sidebar.leading | .automatic | 高 | 系統 | — |
+| 分類／標籤列、長按整理 | 內容／contextMenu | 沿用各列名稱與整理動作圖示 | — | — | 不進全頁 overflow | — |
+
+全部的排列 Menu 需完整提供「網格／square.grid.2x2」「圖文／rectangle.grid.1x2」「清單／list.bullet」，選中項有系統勾選，入口圖示可隨目前排列切換但標題固定「排列」。排序沿用最新、最舊、名稱 A–Z、名稱 Z–A；選項用 Picker 的選取語意，不另造三個排列 toolbar 按鈕。資料夾／標籤索引頁不顯示檔案排列／排序，選分類後的收藏結果才顯示。
+
+M/L 瀏覽使用同一動作集合，已有常駐搜尋欄時不再放 magnifyingglass 按鈕；搜尋欄與 scope 保持水平內容，系統沒有足夠高度時由內容捲動處理。三分頁的「新增收藏」都維持原匯入行為，不因在資料夾頁就改成新增資料夾；寬版既有新增資料夾／標籤入口仍留 sidebar 內容。
+
+同步正常／未設定圖示沿用現況，失敗換 `exclamationmark.arrow.triangle.2.circlepath`，同步中保留同一 Label 的語意，不用純 ProgressView 取代整顆按鈕。VoiceOver value 說明「同步中／同步失敗／尚未設定／已設定」。不用 badge(1) 表達錯誤；失敗不是待讀通知數。
+
+#### B. 搜尋目的頁
+
+| 項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| 返回來源／取消搜尋 | 系統 back；無 back 才 .cancellationAction | 返回收藏（或對應來源）／chevron.backward | .automatic（自訂時） | 高 | 不主動收入 | — |
+| 新增收藏 | .topBarPinnedTrailing | 新增收藏／plus | .automatic | 高 | 系統 | — |
+| 排序 | .bottomBar | 排序／arrow.up.arrow.down | .automatic | 低 | 系統 | — |
+| 同步設定 | ToolbarOverflowMenu 子項 | 同步設定／同步狀態圖示 | — | — | 固定 | — |
+| 搜尋輸入 | 內容 TextField | 搜尋名稱或內容／magnifyingglass | — | — | 否 | — |
+| 清除 query | 輸入框內 Button | 清除搜尋／xmark.circle.fill | — | — | 否 | — |
+| 搜尋範圍 | 內容 Picker | 搜尋範圍；全部收藏／目前分類 | — | — | 否 | — |
+
+搜尋頁不另放「搜尋」按鈕，也不在搜尋框旁保留第二個「取消」重複入口。返回只關閉 searchActive、保留 query 草稿；清除按鈕才清空 query。鍵盤的搜尋提交與關閉由輸入元件處理，不把鍵盤配件移入側邊 bar。既有單欄結果列表、捲動錨點與返回位置不可因原生 stack 遷移而退化。
+
+#### C. 閱讀（N／M／L／F 共用）
+
+| 項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| N 返回 | 系統 back；無 back 才 .cancellationAction | 返回收藏／chevron.backward；搜尋來源為返回搜尋 | .automatic（自訂時） | 高 | 不主動收入 | — |
+| M/L/F 關閉閱讀 | .cancellationAction | 關閉閱讀／xmark | .automatic | 高 | 不主動收入 | — |
+| 分享 | .topBarPinnedTrailing | 分享／square.and.arrow.up | .automatic | 高 | 系統 | — |
+| 單頁閱讀的清單入口 | .topBarTrailing | 收藏清單／list.bullet.rectangle | .automatic | 高 | 系統 | — |
+| 字級 Menu | .bottomBar | 字級／textformat.size | .automatic | 自動 | 系統 | — |
+| 管理標籤 | .bottomBar | 標籤／tag | .automatic | 自動 | 系統 | n>0 時 n |
+| 開原文（URL 存在時） | .bottomBar | 開啟原文／arrow.up.right.square | .automatic | 低 | 系統 | — |
+| 並排 → F／F → 原模式 | .bottomBar | 展開閱讀／arrow.up.left.and.arrow.down.right；返回並排或返回閱讀／arrow.down.right.and.arrow.up.left | .automatic | 自動；F 的返回高 | 系統 | — |
+| 分類（M/L 未常駐且非 F） | ToolbarOverflowMenu 子項 | 分類／sidebar.leading | — | — | 固定 | — |
+| 清單排序（M/L 且可操作清單） | ToolbarOverflowMenu 子項 | 排序／arrow.up.arrow.down | — | — | 固定 | — |
+| 新增收藏（閱讀中） | ToolbarOverflowMenu 子項 | 新增收藏／plus | — | — | 固定 | — |
+| 同步設定（閱讀中） | ToolbarOverflowMenu 子項 | 同步設定／同步狀態圖示 | — | — | 固定 | — |
+| 內容已更新／重新載入 | 文章橫幅內 | 重新載入／arrow.clockwise | — | — | 否 | — |
+| 內容下載重試 | 文章下載狀態內 | 重試／arrow.clockwise | — | — | 否 | — |
+
+「分享」建議為閱讀的主動作；不是把「開原文」改成主動作。沒有原文 URL 時整項不產生，不留 disabled 空格。字級 Menu 保留小／標準／大／特大及目前選取；用 menu 取代 N 自訂底部字級 panel，但仍呼叫同一 ReaderSession 字級操作。標籤 sheet 沿用既有增減標籤功能。
+
+單頁 M 的清單入口與常駐並排清單互斥；N 返回搜尋／收藏，不增設 M 的清單浮層。F 縮窄後仍提供「返回閱讀」，不要再出現先前已修正的退出缺口。清單浮層點目前文章也要關閉；切換分類保留文章與現有返回語意。
+
+分享、標籤、原文與焦點切換每項獨立 ToolbarItem；不要把整個 ReaderFontMenu／ReaderChrome 的多按鈕 HStack 當單一 ToolbarItem。讀取、下載、更新狀態是文章內容，橫幅維持可見且不受 toolbar 壓縮影響。結果外提示可保留文字，但關閉閱讀已有系統入口時，不必再畫第二顆固定 bar 按鈕。
+
+#### D. 標籤 sheet
+
+| 項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| 完成（即時修改後離開） | .confirmationAction | 完成／checkmark | .automatic | 高 | 否 | — |
+| 新增標籤 | 內容 List row | 新增標籤／plus | — | — | 否 | — |
+| 各標籤切換 | 內容 List row | 標籤名稱／tag；選中另有checkmark | — | — | 否 | — |
+
+此 sheet 只保留一顆 toolbar 完成鈕，因此建議 `.toolbarVerticalBehavior(.disabled)`，讓短表單使用較完整寬度；**不要**把即時儲存的「完成」改成暗示可回滾的「取消」。新增標籤 alert 的取消／新增交給系統 alert，不加 bar；標籤列名稱是資料內容，不硬塞圖示工具列。
+
+#### E. 匯入 sheet
+
+| 階段／項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| source：取消 | .cancellationAction | 取消匯入／xmark | .automatic | 高 | 否 | — |
+| source：來源選項 | 內容 List／來源列 | 貼上連結／link；貼上 HTML 原始碼／chevron.left.forwardslash.chevron.right；從檔案匯入／folder | — | — | 否 | — |
+| link／paste：回來源 | .cancellationAction（若改成push則系統back） | 返回來源／chevron.backward | .automatic | 高 | 否 | — |
+| link：擷取並存入 | .topBarPinnedTrailing | 擷取並存入／square.and.arrow.down | .automatic | 高 | 系統 | — |
+| paste：儲存 | .topBarPinnedTrailing | 存入 Keepbox／square.and.arrow.down | .automatic | 高 | 系統 | — |
+| done：提早關閉（若成功畫面仍在） | .cancellationAction | 完成／checkmark | .automatic | 高 | 否 | — |
+
+匯入全流程 `.automatic`，不因 source 只有一顆取消就切成 disabled，避免 source→link 時橫／直列反覆換位。link／paste 的提交改為系統主動作，移除內容底部重複大按鈕，保留相同 validation、isFetching、防重複與錯誤流程。擷取中不改成只有文字的 toolbar；保持 Label，使用 disabled 與 accessibilityValue「擷取中」，進度文字留表單。返回來源不暗中清空草稿。成功仍沿用既有約0.9秒自動關閉，手動完成與回呼必須去重。
+
+#### F. 同步設定 sheet
+
+| 項目 | placement | 標題／SF Symbol | axis | priority | overflow | badge |
+|---|---|---|---|---|---|---|
+| 取消 | .cancellationAction | 取消／xmark | .automatic | 高 | 否 | — |
+| 儲存設定 | .topBarPinnedTrailing | 儲存／checkmark | .automatic | 高 | 系統 | — |
+| 立即同步 | Form 內容按鈕 | 立即同步／arrow.triangle.2.circlepath | — | — | 否 | — |
+| 狀態／上次同步／URL／憑證欄 | Form 內容 | 保留原文字標籤 | — | — | 否 | — |
+
+同步 sheet `.automatic`；儲存與取消的位置由系統安排。立即同步維持先驗證／儲存再同步的既有語意，不因為改 bar 就更改資料保存行為。錯誤留表單，可捲動至錯誤欄；toolbar 不顯示 token，也不把錯誤內容寫進 badge。
+
+### 13.4 由上到下線框與一般 iPhone 對照
+
+以下是功能順序示意，**不是固定座標或保證每項都常駐**。分組間距、標題、溢出位置與隱藏由系統決定；以標題與圖示宣告同一份操作。右側僅示意目前回報的硬體邊，RTL 不自行鏡射側欄。
+
+```text
+Duo 外螢幕：瀏覽（全部）          Duo 外螢幕：閱讀
++--------------------+---------+  +--------------------+---------+
+| Keepbox / 分類內容 | 狀態區  |  | 文章標題 / 內容    | 狀態區  |
+|                    | + 新增  |  |                    | < 返回  |
+| 清單/網格/圖文     | 搜尋    |  | WKWebView          | 分享    |
+|                    | 同步    |  |                    |         |
+|                    |         |  | 內容更新橫幅       | 字級    |
+|                    | 排列    |  | （仍在內容區）     | 標籤 n  |
+|                    | 排序    |  |                    | 原文*   |
+|                    | …*      |  |                    | …       |
+|                    |         |  |                    |         |
+|                    | 全部    |  |                    |         |
+|                    | 資料夾  |  |                    |         |
+|                    | 標籤    |  |                    |         |
++--------------------+---------+  +--------------------+---------+
+* 系統需要時才有 overflow；原文僅 URL 存在時顯示。
+閱讀／搜尋隱藏 tab bar；不在內容左上再畫一個返回。
+
+一般 iPhone 17–26：瀏覽            一般 iPhone：閱讀
++------------------------------+  +------------------------------+
+| Keepbox   搜尋 同步   +      |  | < 返回   文章標題       分享 |
+|                              |  |                              |
+| 收藏內容                     |  | WKWebView                    |
+|                              |  |                              |
+| [排列]               [排序]  |  | [字級] [標籤] [原文*] […]    |
+| 全部      資料夾      標籤    |  +------------------------------+
++------------------------------+   返回後才顯示三分頁
+ 系統 toolbar 與 tab bar，不畫自訂膠囊／浮動 +
+```
+
+搜尋的頂部主要導覽是返回，新增其次，輸入框＋scope 留內容；標籤 sheet 是例外，完成鈕維持水平頂列。匯入與同步 sheet 外螢幕預期取消／返回在直列最上、提交其次，內螢幕置中時採水平列。
+
+M/L 展開時：瀏覽動作由 detail 容器提交；閱讀時改成關閉、分享、清單（僅單頁）、字級、標籤、原文、焦點，再由唯一 overflow 提供低頻操作。sidebar 標題與新增分類留 sidebar，不因為內螢幕有直列就全部挪到 detail。系統在內直回水平時，仍用同一套動作與 priority。
+
+### 13.5 壓縮與退出直列策略
+
+| 畫面 | verticalBehavior | compressionBehavior（27.1） | 壓縮順序／理由 |
+|---|---|---|---|
+| N 三個瀏覽分頁 | .automatic | .prefersTabBar | toolbar 先縮，保留分類導覽；排列／排序先 overflow，新增與錯誤同步較晚 |
+| 搜尋目的頁 | .automatic | .prefersToolbarItems | 任務操作優先；本方案 tab 已隱藏，所以目前無 tab 競爭，鍵盤出現時仍保留返回與新增 |
+| N/M/L/F 閱讀 | .automatic | .prefersToolbarItems | 閱讀動作優先；tab 隱藏時只在 toolbar 各項間壓縮，原文先、字級／標籤其次，分享與返回最後 |
+| M/L 瀏覽 | .automatic | .prefersTabBar（無 tab 時無競爭效果） | 與瀏覽規則一致，sidebar 不等同 tab bar，不靠此 modifier 壓縮 sidebar |
+| 標籤 sheet | **.disabled** | 不設 | 只有完成一顆 toolbar 控制項，內容新增列不算 bar；保留較寬列表 |
+| 匯入各步驟 | .automatic | .prefersToolbarItems | 返回／取消及提交優先，不切換直列開關 |
+| 同步設定 | .automatic | .prefersToolbarItems | 取消／儲存優先，立即同步與長錯誤留內容 |
+
+**不要把 `.prefersToolbarItems` 誤解成 toolbar 先壓縮**：它是優先保留 toolbar；`.prefersTabBar` 優先保留 tabs。本章不用「低頻項目另開一顆 ellipsis Menu」的雙溢出做法。每一個作用中的 detail／目的頁至多一個 ToolbarOverflowMenu；瀏覽頁無固定低頻項目時不刻意建立空 overflow。
+
+所有 toolbar 群組先保持 automatic priority，再依表格設單項優先權；不要整組都 high。回到一般 iPhone 時 low priority 不代表功能被刪除，須能由系統溢出或舊版等效 Menu 找到。原生 bar 空間不足不得將 Label 截成看不懂的文字或縮小到低於44pt命中範圍。
+
+### 13.6 SDK 邊界與 iOS 17–26 退路
+
+本次讀取題示 iOS27.2 的 SwiftUI swiftinterface，確認下列宣告。這是 API 宣告查核，尚未編譯本章實作。
+
+| API | 本機宣告 | 本章使用條件／退路 |
+|---|---|---|
+| ToolbarContent.axisBehavior | anyAppleOS 27.1 | iOS 27.1 guard 內套用；17–27.0 不套 modifier |
+| toolbarVerticalBehavior／toolbarVerticalCompressionBehavior | anyAppleOS 27.1；prefersToolbarItems／prefersTabBar 為 iOS 27.1 | iOS 27.1 guard；舊版自然水平列，不造假同名 extension |
+| ToolbarContent.visibilityPriority | iOS 27.0 | iOS 27.0 guard；舊版使用較少常駐項目與等效 Menu |
+| ToolbarOverflowMenu | iOS 27.0；macOS unavailable | 依本次需求統一在 iOS 27.1 guard 使用；17–27.0 單一 Menu 替代 |
+| ToolbarItemPlacement.topBarPinnedTrailing | iOS 27.0；macOS unavailable | 依本次需求統一採27.1 guard；舊版新增／分享用 .topBarTrailing，儲存用 .confirmationAction |
+| toolbarVerticalEdge | 題示未查得公開 SwiftUI 宣告，本章不採用 | 不用字串 KVC、私有 API 或猜硬體邊的替代法 |
+
+新的直列適配元件限定非 Catalyst iOS 分支；Mac 共享 sheet／同步元件如需修改 Label，須維持 Mac 原控制項布局及語意。不能僅以 `#available(iOS 27.1, *)` 就把標示 macOS unavailable 的型別漏到 Mac 專屬碼；必要時以 `#if os(iOS) && !targetEnvironment(macCatalyst)` 隔離新 toolbar 宣告。基線 iOS 17 分支不直接引用新版型別作 stored property。
+
+**17–26 的具體替代（27.0 也沿用此呈現，僅 priority 可另加27.0 guard）**：
+
+- 同樣使用系統 TabView、NavigationStack、toolbar 與原生返回，保留資料／搜尋／三排列功能；不要退回原自訂列造成兩種導航狀態實作。
+- 只有 topBarPinnedTrailing、axis／compression／priority 等新版宣告需隔離。原生返回與 cancellationAction、confirmationAction、topBarTrailing、bottomBar 沿用17基線。
+- 原本固定放 ToolbarOverflowMenu 的項目，在17–26用唯一 `Menu { ... } label: { Label("更多", systemImage: "ellipsis") }`，放 `.bottomBar`。該 Menu 是溢出替代，因此可用 ellipsis；其餘排列／字級／排序仍用自己的符號。27.1以上路徑不可再並存此 Menu。
+- toolbar 太擠時，17–26 閱讀保留返回／分享、底部字級／標籤與更多；原文與焦點切換改收該唯一更多。瀏覽的排列／排序可合併收更多，但選項必須完整；以最小支援 iPhone 的實際文字尺寸驗證，不以機型名稱切分。
+- 同步按鈕在 bar 裡避免巢狀玻璃背景，命中至少44pt，狀態及 VoiceOver 保留。badge 僅在確認支援的27.1路徑加到標籤按鈕，舊版不用仿製小圓點擠壓圖示。
+
+### 13.7 VoiceOver、Dynamic Type 與保留行為
+
+- 每個入口的完整標題與圖示可用於 overflow 展開；VoiceOver 另外提供字級值、排列選取、同步狀態、已選標籤數，不把名稱改成純圖示代碼。等待狀態仍可理解「擷取並存入，擷取中，無法使用」。
+- 原生 back 由系統處理方向與朗讀；自訂 fallback 用 chevron.backward，RTL 文字與返回符號順應語系，硬體工具列位置由系統決定。不要用左／右作為語音動作名稱。
+- Dynamic Type 增大時允許 toolbar overflow，表單／分類內容增高或捲動；不強制 icon＋文字的固定寬 HStack。字級選項名稱、錯誤與匯入成功訊息不得被 bar 裁切。
+- 內容更新橫幅「重新載入」保留可見且可朗讀；不要把文章更新提示換成只有 overflow 內一項。toast 留根 overlay、位於可用內容安全區內；移除舊 bar 後要重新檢查原本底部120pt偏移，改為隨內容安全區定位，不遮鍵盤／原生 bar，也不改通知時機。
+- 長按整理、ActionMenu 與來源辨識不因系統 toolbar 消失；長按選單中的 ellipsis 不另當成一般動作符號。搜尋 scope、query 草稿、列表錨點、每篇文章位置及既有互動 gate 全部維持。
+- Reduce Motion 下不額外旋轉／飛入工具列；Reduce Transparency 由系統 bar 表現，內容色彩與狀態不只靠透明度或顏色辨識。
+
+### 13.8 Claude 後續實作切分（本次未改碼）
+
+1. `AdaptiveLibraryView.swift`：N 換系統三分頁＋各自 stack，建立 state 導出的目的頁與唯一返回動作；移除 bottomBar。M/L 的 toolbar 由 detail 一處組合，保留現有欄寬 policy。不得新增裝置型號分支。
+2. 新增 iOS 專用共用 ToolbarContent（建議 `Views/Library/LibraryToolbarContent.swift`、`Views/Reader/ReaderToolbarContent.swift`）：集中表格動作與17／27／27.1分支。資料操作仍呼叫現有 callback，不複製服務或另存 query。
+3. `FileListView.swift`、`SearchView.swift`：移除搬進 bar 的重複入口，保持內容與搜尋錨點；`FolderGridView.swift`、`TagListView.swift` 接入各自導航標題，資料選擇維持現況。
+4. `FileDetailView.swift`、`ReaderChrome.swift`：移除自訂頂／底工具 HStack，接共用 toolbar；ReaderContentView、ReaderSession、ResizeInteractionGate 不改。若原生 navigation resize 暴露問題，另列 bug 驗證，不在此遷移順便重寫閱讀演算法。
+5. `ActionMenuView.swift` 中 TagManagementSheet、`ImportSheetView.swift`、`SyncSettingsView.swift`、`SyncStatusButton.swift`：按本章補 Label、呈現策略、等效入口，保護共用 Mac 路徑。原有匯入與同步功能不改。
+6. `ContentView.swift`：保留根 sheet、toast與狀態，只有呈現需要的接線／toast避讓調整；不更動 SwiftData schema、SceneStorage 編碼、project.yml orientations 或多視窗設定。
+
+### 13.9 驗收清單
+
+以下均為實作後待驗收；本次僅完成設計與 SDK 查核。
+
+| 環境／情境 | 驗收項目 | 通過標準 |
+|---|---|---|
+| Duo 外螢幕27.2三分頁 | 逐一檢查全部／資料夾／標籤，新增、搜尋、同步、三排列、排序、長按 | 系統側列有動作；沒有舊浮動＋或自訂底膠囊；分頁可選，返回不重置 filter |
+| Duo 外螢幕閱讀 | 從收藏與搜尋各開文，系統back或fallback、分享、字級、標籤、原文有／無URL | 返回在直列主要導覽位置，只有一顆；無URL整項隱藏；讀文時不出現分頁列 |
+| Duo 外螢幕壓縮 | 顯示鍵盤、最大字級、同步失敗、足量標籤badge | overflow只有一個，每項有正確標題／圖示；返回與主動作可達，不丟功能 |
+| Duo 外螢幕 sheets | 標籤、匯入source/link/paste/done、同步設定 | 標籤完成水平；匯入／同步正常直排；提交有效性、取消／返回、草稿與成功去重正確 |
+| Duo 內螢幕攤開 | M單頁＋清單、M並排、L可用容器、F，內直與內橫分別驗證 | detail動作單份；系統可回水平；其他欄不錯搬；原文／焦點／清單按鈕條件正確 |
+| 開合與導航 | 搜尋深處開文、捲至中段、至少兩輪雙方向開合、返回、互動式pop | 同一文章與Session；不重載；原query／scope／來源位置保留；closeReader不執行兩次 |
+| iPhone17 Pro 26.5 | 系統三分頁、搜尋、閱讀、所有sheets及更多Menu | 系統水平列／Liquid Glass；沒有27 API錯誤；三排列、同步、匯入、更新橫幅仍可用 |
+| iOS17基線 | 舊版build／runtime（可用時），窄寬與大字體 | 無27型別洩漏；功能與入口完整；缺runtime時明示未驗，不以26.5代替17驗收 |
+| iPad | 直橫、Split View兩側／窄幅、置中sheet、popover、分享 | M/L架構不多一組tabs；工具與文章不重複；系統sheet布局正確；縮窄退N仍有返回 |
+| 輔助使用 | VoiceOver、最大字級、RTL、Reduce Motion／Transparency、深淺色 | 名稱／狀態完整、閱讀順序合理、命中≥44，RTL不手工搬硬體側列 |
+| Mac回歸 | 建置與既有sidebar／toolbar／分享／同步sheet | 未套iOS側列新外觀，既有快捷鍵和流程維持 |
+
+驗收紀錄需附 OS／SDK、作用中容器、size class、實際內容W/H、safe area及截圖；不要只以按鈕存在於 View tree 判定已進側邊bar。600／760／1100 的 policy 測試仍保留，但系統bar消耗空間後的真實幾何要重新記錄。未驗的項目不得沿用上一版 build20 截圖作為改版後通過證據。
+
+### 13.10 需要大皓決定的問題
+
+1. **一般 iPhone 也改用原生分頁列與工具列，接受與目前膠囊底列不同的外觀嗎？** 建議接受；保留紫色與內容風格，讓17–26走各自原生外觀，26採Liquid Glass。若不接受，需要另訂舊版外殼維護範圍，不能假裝目前設計沒有視覺變化。
+2. **閱讀時最優先的動作是「分享」還是「字級」？** 建議分享放主要動作位置；字級留底部／直列工具組。若大皓更常調字級，可交換優先權與placement，其他分組不變。
+3. **只有一顆完成鈕的標籤sheet是否保留水平列？** 建議是，使用disabled；匯入與同步維持automatic，兼顧列表寬度與提交操作一致性。
+
+以上是建議，不阻止設計交付；需大皓確認後由 Claude 依定案實作，再交回審查。已決定的外螢幕不做橫式、多視窗Phase B、搜尋預設全部可切分類、Pencil註記不做，均不重新提問。
+
+### 13.11 大皓決定（2026-11-04）
+
+1. 一般 iPhone **一起改**用原生分頁列與工具列（接受外觀改變）。
+2. 閱讀主動作：**分享**。
+3. 標籤 sheet：**維持水平**（`.toolbarVerticalBehavior(.disabled)`）。
+4. 一併修正：Duo 展開→折疊後外螢幕收藏列表／卡片格位置沒對齊（折疊→展開正常）。與本章外殼改寫一起做，並在 Duo 模擬器驗證雙向。

@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 
 // MARK: - HomeView (全部 tab content)
+/// 窄版「全部」分頁內容。標題、新增、搜尋、同步、排列、排序都在系統工具列（AdaptiveLibraryView），
+/// 這裡只放分類 chips 與收藏內容，讓 Duo 外螢幕可把工具搬進直式側邊列。
 struct HomeView: View {
     @Environment(\.colorScheme) private var scheme
     @Bindable var state: LibrarySceneState
@@ -10,8 +12,6 @@ struct HomeView: View {
     let tags: [Tag]
     let onOpen: (HTMLFile) -> Void
     let onLong: (HTMLFile) -> Void
-    let onSearch: () -> Void
-    let onSync: () -> Void
 
     private var files: [HTMLFile] { state.results(from: allFiles) }
     private var layout: KBLayout { state.layout }
@@ -20,8 +20,6 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                headerRow
-                searchBar
                 filterChips
                 if let folder = selectedFolder {
                     Text(folder.name)
@@ -34,93 +32,9 @@ struct HomeView: View {
             }
             .padding(.bottom, 16)
         }
-        .scrollPosition(id: anchorBinding, anchor: .top)
+        .listAnchorScroll(state, key: state.listAnchorKey)
         .scrollIndicators(.hidden)
         .background(Color.kbBg(scheme))
-    }
-
-    /// 返回首頁時回到原本看到的那一則。
-    private var anchorBinding: Binding<UUID?> {
-        let key = state.listAnchorKey
-        return Binding(get: { state.listAnchors[key] },
-                       set: { if let id = $0 { state.listAnchors[key] = id } })
-    }
-
-    // MARK: - Header
-    private var headerRow: some View {
-        HStack(alignment: .center) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(LinearGradient(
-                            colors: [Color.kbAccent, Color.kbAccent.opacity(0.75)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 34, height: 34)
-                        .shadow(color: Color.kbAccent.opacity(0.35), radius: 8, x: 0, y: 4)
-                    Image(systemName: "shippingbox.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                Text("Keepbox")
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(Color.kbText(scheme))
-            }
-            Spacer()
-            SyncStatusButton(action: onSync)
-            if state.filter == .all {
-                viewToggle
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 28).padding(.bottom, 6)
-    }
-
-    private var viewToggle: some View {
-        HStack(spacing: 3) {
-            toggleBtn(.grid, "square.grid.2x2")
-            toggleBtn(.gallery, "rectangle.grid.1x2")
-            toggleBtn(.list, "list.bullet")
-        }
-        .padding(3)
-        .background(Color.secondary.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 11))
-    }
-
-    @ViewBuilder
-    private func toggleBtn(_ l: KBLayout, _ icon: String) -> some View {
-        let on = layout == l
-        Button { state.layout = l } label: {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(on ? Color.kbAccent : Color.secondary)
-                .frame(width: 36, height: 28)
-                .background(on ? Color.kbSurface(scheme) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .shadow(color: on && scheme == .light ? .black.opacity(0.12) : .clear, radius: 3, x: 0, y: 1)
-                .frame(height: 44)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(l == .grid ? "網格" : l == .gallery ? "圖文" : "清單")
-        .accessibilityAddTraits(on ? [.isSelected] : [])
-    }
-
-    // MARK: - Search bar
-    private var searchBar: some View {
-        Button(action: onSearch) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Color.kbSub(scheme))
-                Text("搜尋檔案名稱或內容")
-                    .foregroundStyle(Color.kbSub(scheme))
-                    .font(.system(size: 15.5))
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 40)
-            .background(scheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-        }
     }
 
     // MARK: - Filter chips
@@ -234,7 +148,7 @@ struct HomeView: View {
                 .font(.system(size: 22, weight: .heavy))
                 .foregroundStyle(Color.kbText(scheme))
 
-            Text("從 Line、Messenger 或瀏覽器分享 HTML 頁面，\n或點右下 ＋ 貼上 HTML 原始碼。")
+            Text("從 Line、Messenger 或瀏覽器分享 HTML 頁面，\n或點工具列的 ＋ 新增收藏。")
                 .font(.system(size: 14.5))
                 .foregroundStyle(Color.kbSub(scheme))
                 .multilineTextAlignment(.center)

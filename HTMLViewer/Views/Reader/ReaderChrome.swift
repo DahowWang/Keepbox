@@ -53,7 +53,7 @@ struct ReaderContentView: View {
     }
 }
 
-/// 字級選單（並排閱讀工具列用）。
+/// 字級選單（系統工具列項目）。標題固定「字級」，目前選取由 Picker 勾選並朗讀。
 struct ReaderFontMenu: View {
     let session: ReaderSession
     @Bindable var state: LibrarySceneState
@@ -69,35 +69,61 @@ struct ReaderFontMenu: View {
                 }
             }
         } label: {
-            Image(systemName: "textformat.size").frame(width: 44, height: 44)
+            Label("字級", systemImage: "textformat.size")
         }
-        .accessibilityLabel("字級：\(session.fontLabel)")
+        .accessibilityValue(session.fontLabel)
     }
 }
 
-/// 內螢幕並排／專注閱讀：文章上方的工具列放在安全區域內，不蓋住文章。
+/// 閱讀共用的工具列項目（窄版、寬版都用）：分享（主要動作）、字級、標籤、原文。
+/// 返回／關閉、收藏清單、焦點切換與溢出選單由各自的容器加，避免重複。
+/// 每項都是獨立 ToolbarItem，系統才能在 Duo 直式列逐項排列、壓縮。
+struct ReaderToolbarItems: ToolbarContent {
+    let file: HTMLFile
+    let session: ReaderSession
+    let state: LibrarySceneState
+    let originalURL: URL?
+    /// 窄版：次要工具放底部工具列；寬版：放頂端（文章與清單並排，底列會橫跨兩欄）。
+    let compact: Bool
+    let onTags: () -> Void
+
+    private var secondary: ToolbarItemPlacement { compact ? .bottomBar : .topBarTrailing }
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .kbPrimary) {
+            ShareLink(item: file.content) { Label("分享", systemImage: "square.and.arrow.up") }
+        }
+        .kbPriority(.high)
+        ToolbarItem(placement: secondary) {
+            ReaderFontMenu(session: session, state: state)
+        }
+        ToolbarItem(placement: secondary) {
+            Button(action: onTags) { Label("標籤", systemImage: "tag") }
+                .kbToolbarBadge(file.tags.count)
+                .accessibilityValue(file.tags.isEmpty ? "尚未加標籤" : "已加 \(file.tags.count) 個標籤")
+        }
+        if let originalURL {
+            ToolbarItem(placement: secondary) {
+                Link(destination: originalURL) { Label("開啟原文", systemImage: "arrow.up.right.square") }
+            }
+            .kbPriority(.low)
+        }
+    }
+}
+
+/// 內螢幕並排／單頁／專注閱讀的文章區。工具列由 WideLibraryView 的 detail 根頁統一提供
+/// （系統 toolbar，Duo 攤開時可直排），這裡只放「不在目前結果」提示與文章本體。
 struct WideReaderView: View {
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.openURL) private var openURL
     let file: HTMLFile
     let session: ReaderSession
     @Bindable var state: LibrarySceneState
-    let tags: [Tag]
-    let viewModel: FileViewModel
     /// 文章已不在目前搜尋／分類結果中（仍保留閱讀，顯示提示）。
     let isOutsideResults: Bool
-    /// 單頁閱讀（600–759pt）時提供「收藏清單」浮層；並排時為 nil。參數是收起浮層的 callback。
-    var collectionList: ((_ dismiss: @escaping () -> Void) -> AnyView)? = nil
     let onClose: () -> Void
-
-    @State private var source: CollectionSource?
-    @State private var showTags = false
-    @State private var showList = false
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
             if isOutsideResults {
                 HStack(spacing: 10) {
                     Image(systemName: "info.circle").foregroundStyle(.secondary)
@@ -111,64 +137,6 @@ struct WideReaderView: View {
             ReaderContentView(file: file, session: session, state: state)
         }
         .background(Color.kbSurface(scheme))
-        .onAppear(perform: updateSource)
-        .onChange(of: file.id) { _, _ in updateSource(); showList = false }
-        .onChange(of: file.content) { _, _ in updateSource() }
-        .onChange(of: collectionList == nil) { _, alongside in if alongside { showList = false } }
-        .sheet(isPresented: $showTags) {
-            ReaderTagSheet(file: file, tags: tags, viewModel: viewModel, isPresented: $showTags)
-        }
-    }
-
-    private var toolbar: some View {
-        HStack(spacing: 4) {
-            Button(action: onClose) { Image(systemName: collectionList == nil ? "xmark" : "chevron.left").frame(width: 44, height: 44) }
-                .accessibilityLabel("關閉閱讀，返回收藏")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(file.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(file.createdAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 4)
-            if let collectionList {
-                // 開關浮層不改變文章寬度、不重載 HTML。
-                Button { showList = true } label: { Image(systemName: "list.bullet.rectangle").frame(width: 44, height: 44) }
-                    .accessibilityLabel("收藏清單")
-                    .popover(isPresented: $showList) {
-                        collectionList { showList = false }
-                            .frame(idealWidth: 300, maxWidth: 320, idealHeight: 560)
-                            .presentationCompactAdaptation(.sheet)
-                    }
-            }
-            if collectionList == nil || state.focusReading {
-                // 並排時：展開成只剩文章／返回並排。從 F 縮到單頁寬度時仍提供退出。
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { state.focusReading.toggle() }
-                } label: {
-                    Image(systemName: state.focusReading ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel(state.focusReading ? (collectionList == nil ? "返回並排" : "返回閱讀") : "展開閱讀")
-            }
-            ReaderFontMenu(session: session, state: state)
-            Button { showTags = true } label: { Image(systemName: "tag").frame(width: 44, height: 44) }
-                .accessibilityLabel("標籤")
-            ShareLink(item: file.content) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44) }
-                .accessibilityLabel("分享 HTML 內容")
-            if let url = source?.originalURL {
-                Button { openURL(url) } label: { Image(systemName: "arrow.up.right.square").frame(width: 44, height: 44) }
-                    .accessibilityLabel("在瀏覽器開啟原文")
-            }
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.kbText(scheme))
-        .padding(.horizontal, 8)
-        .frame(minHeight: 56)
-        .background(Color.kbSurface(scheme))
-    }
-
-    private func updateSource() {
-        source = CollectionSource.resolve(html: file.content, sourceApp: file.sourceApp)
     }
 }
 

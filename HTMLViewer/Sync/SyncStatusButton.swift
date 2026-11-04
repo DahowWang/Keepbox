@@ -42,16 +42,38 @@ struct SyncStatusIcon: View {
         }
     }
 
-    private var icon: String {
+    private var icon: String { Self.symbolName }
+
+    /// 系統工具列用的 SF Symbol（失敗時換成驚嘆號版本）。
+    @MainActor static var symbolName: String {
         if !SyncSettings.isConfigured { return "arrow.triangle.2.circlepath" }
-        switch sync.state {
+        switch SyncService.shared.state {
         case .failed: return "exclamationmark.arrow.triangle.2.circlepath"
         default: return "arrow.triangle.2.circlepath"
         }
     }
 
+    @MainActor static var isFailed: Bool {
+        if case .failed = SyncService.shared.state { return true }
+        return false
+    }
+
     private var tint: Color {
         if case .failed = sync.state { return .orange }
         return SyncSettings.isConfigured ? Color.kbAccent : Color.kbSub(scheme)
+    }
+}
+
+/// 系統工具列裡的同步按鈕：標準 Label（標題＋圖示），讓 Duo 直式列與溢出選單都能正確顯示。
+/// 不疊自訂背景，避免和系統 bar 的玻璃背景重疊。
+struct SyncToolbarButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("同步設定", systemImage: SyncStatusIcon.symbolName)
+        }
+        .symbolEffect(.pulse, isActive: SyncService.shared.state == .syncing)
+        .accessibilityValue(SyncStatusIcon.spokenState)
     }
 }

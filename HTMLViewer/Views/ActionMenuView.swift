@@ -183,6 +183,8 @@ struct TagManagementSheet: View {
                     Button("完成") { isPresented = false }
                 }
             }
+            // 只有一顆完成鈕：Duo 外螢幕維持水平列，列表用完整寬度（§13.5）。
+            .kbVerticalToolbarDisabled()
             .alert("新增標籤", isPresented: $showAddTag) {
                 TextField("標籤名稱", text: $newTagName)
                 Button("取消", role: .cancel) {}

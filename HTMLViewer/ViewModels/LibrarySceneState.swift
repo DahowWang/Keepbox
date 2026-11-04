@@ -76,6 +76,77 @@ final class LibrarySceneState {
     /// 一次性提示（刪除、已存入等）。
     var notice: String?
 
+    // MARK: List anchors across resize（Duo 開合）
+
+    /// 容器寬度變動後多久才算穩定。開合時會經過 867／466 等過渡寬度，
+    /// 卡片重新排版、捲動位移不變，頂端那一張會換人；這段期間列表回報的位置不可信。
+    static let listSettleDelay: Duration = .milliseconds(900)
+    @ObservationIgnored private var listFrozenUntil: ContinuousClock.Instant?
+    @ObservationIgnored private var listSettleTask: Task<Void, Never>?
+    /// 寬度穩定後 +1；列表據此捲回記錄的那一則。
+    var listSettleGeneration = 0
+
+    var listAnchorsFrozen: Bool {
+        guard let until = listFrozenUntil else { return false }
+        return ContinuousClock.now < until
+    }
+
+    /// 正在被使用者拖動或慣性滑動的列表（每個列表一個 owner）。非空時位置以使用者為準：
+    /// 寬度變動不凍結、也不復原。用 owner 集合，一個列表離開不會清掉另一個列表的狀態。
+    static var listFreezeSupported: Bool {
+        if #available(iOS 18.0, macCatalyst 18.0, *) { return true }
+        return false
+    }
+
+    @ObservationIgnored private var listScrollingOwners: Set<UUID> = []
+    var listUserScrolling: Bool { !listScrollingOwners.isEmpty }
+
+    /// 版面容器寬度改變（開合、Split View 拖曳）：凍結列表錨點，穩定後通知列表復原。
+    /// 只在能讀到實際捲動階段（iOS 18+ `onScrollPhaseChange`）的系統啟用；iOS 17 無法可靠判斷
+    /// 使用者是否仍在慣性滑動，維持改版前行為（不凍結、不復原）。Duo 需 iOS 27，不受影響。
+    func containerWidthDidChange() {
+        guard Self.listFreezeSupported, !listUserScrolling else { return }
+        listFrozenUntil = ContinuousClock.now.advanced(by: Self.listSettleDelay)
+        listSettleTask?.cancel()
+        listSettleTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.listSettleDelay)
+            guard !Task.isCancelled, let self else { return }
+            self.listFrozenUntil = nil
+            self.listSettleTask = nil
+            // 等待期間使用者開始捲動：以使用者為準，不拉回。
+            guard !self.listUserScrolling else { return }
+            self.listSettleGeneration += 1
+        }
+    }
+
+    /// 列表 `owner` 的使用者開始／結束主動捲動（拖動或慣性）。開始時取消待復原、解除凍結。
+    func setListUserScrolling(_ scrolling: Bool, owner: UUID) {
+        if scrolling {
+            listScrollingOwners.insert(owner)
+            listSettleTask?.cancel()
+            listSettleTask = nil
+            listFrozenUntil = nil
+        } else {
+            listScrollingOwners.remove(owner)
+        }
+    }
+
+    /// 一次性的使用者互動（開始後立即結束）。
+    func listUserDidInteract() {
+        let owner = UUID()
+        setListUserScrolling(true, owner: owner)
+        setListUserScrolling(false, owner: owner)
+    }
+
+    /// 列表回報目前頂端那一則；寬度變動中的回報丟掉，避免過渡排版覆寫正確位置。
+    /// 回傳是否採用。
+    @discardableResult
+    func reportListTop(_ id: UUID, key: String) -> Bool {
+        guard !listAnchorsFrozen else { return false }
+        if listAnchors[key] != id { listAnchors[key] = id }
+        return true
+    }
+
     // MARK: Derived
 
     var effectiveQuery: String {

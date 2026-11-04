@@ -108,7 +108,7 @@ struct CollectionBrowserView: View {
                 .scrollTargetLayout()
                 .padding(.horizontal, horizontalPadding).padding(.bottom, 24)
             }
-            .scrollPosition(id: anchorBinding(columns: 1), anchor: .top)
+            .listAnchorScroll(state, key: state.listAnchorKey, target: rowTarget(columns: 1))
         } else if usesGrid {
             let plan = LibraryLayoutPolicy.gridPlan(containerWidth: width, padding: horizontalPadding,
                                                     minCard: LibraryLayoutPolicy.touchCardMinWidth,
@@ -123,7 +123,7 @@ struct CollectionBrowserView: View {
                 .scrollTargetLayout()
                 .padding(.bottom, 24)
             }
-            .scrollPosition(id: anchorBinding(columns: columns), anchor: .top)
+            .listAnchorScroll(state, key: state.listAnchorKey, target: rowTarget(columns: columns))
             .animation(nil, value: plan)
         } else {
             ScrollView {
@@ -139,7 +139,7 @@ struct CollectionBrowserView: View {
                 .scrollTargetLayout()
                 .padding(.horizontal, isReadingAlongside ? 8 : horizontalPadding - 8).padding(.bottom, 16)
             }
-            .scrollPosition(id: anchorBinding(columns: 1), anchor: .top)
+            .listAnchorScroll(state, key: state.listAnchorKey, target: rowTarget(columns: 1))
         }
     }
 
@@ -193,16 +193,12 @@ struct CollectionBrowserView: View {
     }
 
     /// 錨點存的是收藏 UUID；欄數改變時對應到包含它的那一列。
-    private func anchorBinding(columns: Int) -> Binding<UUID?> {
-        let key = state.listAnchorKey
-        return Binding(
-            get: {
-                guard let id = state.listAnchors[key], let index = files.firstIndex(where: { $0.id == id }) else { return nil }
-                return files[(index / columns) * columns].id
-            },
-            set: { newValue in
-                if let newValue { state.listAnchors[key] = newValue }
-            })
+    private func rowTarget(columns: Int) -> (UUID?) -> UUID? {
+        let files = files
+        return { id in
+            guard let id, let index = files.firstIndex(where: { $0.id == id }) else { return nil }
+            return files[(index / columns) * columns].id
+        }
     }
 
     // MARK: Empty

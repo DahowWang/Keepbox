@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// 外螢幕／單欄搜尋。query 與 scope 存在 scene state：
-/// 取消只關閉搜尋畫面、保留草稿；摺疊／展開後寬版看到相同結果。
+/// 外螢幕／單欄搜尋（窄版 NavigationStack 的目的頁）。query 與 scope 存在 scene state：
+/// 系統返回只關閉搜尋畫面、保留草稿；清除按鈕才清空。摺疊／展開後寬版看到相同結果。
 struct SearchView: View {
     @Environment(\.colorScheme) private var scheme
     @Bindable var state: LibrarySceneState
     let allFiles: [HTMLFile]
-    let onBack: () -> Void
     let onOpen: (HTMLFile) -> Void
 
     @FocusState private var focused: Bool
@@ -19,36 +18,30 @@ struct SearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search bar row
-            HStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color.kbSub(scheme))
-                    TextField("搜尋檔案名稱或內容", text: $state.query)
-                        .focused($focused)
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color.kbText(scheme))
-                    if !query.isEmpty {
-                        Button { state.query = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Color.kbSub(scheme))
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("清除搜尋")
+            // Search bar row（返回由系統導覽列提供，不再放第二個「取消」）
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Color.kbSub(scheme))
+                TextField("搜尋檔案名稱或內容", text: $state.query)
+                    .focused($focused)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.kbText(scheme))
+                if !query.isEmpty {
+                    Button { state.query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.kbSub(scheme))
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("清除搜尋")
                 }
-                .padding(.leading, 12)
-                .frame(minHeight: 44)
-                .background(scheme == .dark ? Color.white.opacity(0.1) : Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: scheme == .light ? .black.opacity(0.06) : .clear, radius: 3)
-
-                Button("取消", action: onBack)
-                    .font(.system(size: 16.5, weight: .semibold))
-                    .foregroundStyle(Color.kbAccent)
             }
+            .padding(.leading, 12)
+            .frame(minHeight: 44)
+            .background(scheme == .dark ? Color.white.opacity(0.1) : Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: scheme == .light ? .black.opacity(0.06) : .clear, radius: 3)
             .padding(.horizontal, 16)
-            .padding(.top, 20).padding(.bottom, 12)
+            .padding(.top, 8).padding(.bottom, 12)
 
             if state.filter != .all {
                 Picker("搜尋範圍", selection: $state.scope) {
@@ -68,7 +61,7 @@ struct SearchView: View {
                     resultsView
                 }
             }
-            .scrollPosition(id: anchorBinding, anchor: .top)
+            .listAnchorScroll(state, key: state.listAnchorKey)
             .scrollIndicators(.hidden)
         }
         .background(Color.kbBg(scheme).ignoresSafeArea())
@@ -77,14 +70,6 @@ struct SearchView: View {
             guard state.query.isEmpty else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focused = true }
         }
-    }
-
-    /// 搜尋結果的捲動錨點：與寬版共用同一個 key（filter＋query＋scope＋sort＋layout），
-    /// 從文章返回或摺疊切換時回到原本那一列。
-    private var anchorBinding: Binding<UUID?> {
-        let key = state.listAnchorKey
-        return Binding(get: { state.listAnchors[key] },
-                       set: { if let id = $0 { state.listAnchors[key] = id } })
     }
 
     // MARK: - Results list

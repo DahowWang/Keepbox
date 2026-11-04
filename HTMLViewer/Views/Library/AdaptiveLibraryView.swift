@@ -54,6 +54,8 @@ struct AdaptiveLibraryView: View {
                                     onNewCollection: { beginCollection($0) })
                 }
             }
+            // 開合／Split View 改寬度：過渡排版期間列表位置不寫回，穩定後捲回記錄的那則。
+            .onChange(of: proxy.size.width) { _, _ in state.containerWidthDidChange() }
         }
         .alert("重新命名收藏", isPresented: Binding(get: { renameFile != nil }, set: { if !$0 { renameFile = nil } })) {
             TextField("名稱", text: $nameDraft)
@@ -99,11 +101,18 @@ struct AdaptiveLibraryView: View {
     }
 }
 
-// MARK: - Narrow（外螢幕、窄 Split View、超大字級）
+// MARK: - Narrow（外螢幕、一般 iPhone、窄 Split View、超大字級）
 
-/// 原本的手機介面：全部／資料夾／標籤三分頁、三種排列、全畫面閱讀。
+/// 窄版導覽堆疊的目的頁。路徑完全由 scene state 推導（單一真值），不另存一份。
+private enum NarrowRoute: Hashable {
+    case search
+    case reader
+}
+
+/// 系統 TabView（全部／資料夾／標籤）＋每個分頁自己的 NavigationStack。
+/// 標題、新增、搜尋、同步、排列、排序都是系統工具列項目：一般 iPhone 顯示水平列，
+/// Duo 外螢幕由系統搬進右側直式列（返回在最上方）。搜尋與閱讀 push 在目前分頁的 stack 上並隱藏分頁列。
 private struct NarrowLibraryView: View {
-    @Environment(\.colorScheme) private var scheme
     @Bindable var state: LibrarySceneState
     let session: ReaderSession
     let viewModel: FileViewModel
@@ -116,92 +125,175 @@ private struct NarrowLibraryView: View {
     let onLongPress: (HTMLFile) -> Void
 
     var body: some View {
-        ZStack {
-            if state.readerPresented, let file = selectedFile {
+        TabView(selection: $state.tab) {
+            stack(for: .all) {
+                HomeView(state: state, allFiles: allFiles, folders: folders, tags: tags,
+                         onOpen: { state.open($0) }, onLong: onLongPress)
+            }
+            .tabItem { Label("全部", systemImage: "doc.text") }
+            .tag(KBTab.all)
+
+            stack(for: .folders) {
+                FolderGridView(
+                    folders: folders.filter { $0.parent == nil }, allFiles: allFiles,
+                    onOpen: { folder in
+                        state.select(.folder(folder.id))
+                        state.tab = .all
+                    })
+            }
+            .tabItem { Label("資料夾", systemImage: "folder") }
+            .tag(KBTab.folders)
+
+            stack(for: .tags) {
+                TagListView(
+                    tags: tags, allFiles: allFiles,
+                    onPick: { tag in
+                        state.select(.tag(tag.id))
+                        state.tab = .all
+                    })
+            }
+            .tabItem { Label("標籤", systemImage: "tag") }
+            .tag(KBTab.tags)
+        }
+        .tint(Color.kbAccent)
+    }
+
+    // MARK: Navigation（state → path；系統返回／滑動返回 → 既有 closeReader／取消搜尋）
+
+    /// 目前分頁的導覽路徑。閱讀中是否還在搜尋，看開文當時的返回上下文。
+    private var route: [NarrowRoute] {
+        let reading = state.readerPresented && selectedFile != nil
+        let inSearch = reading ? (state.returnContext?.searchActive ?? false) : state.searchActive
+        var path: [NarrowRoute] = []
+        if inSearch { path.append(.search) }
+        if reading { path.append(.reader) }
+        return path
+    }
+
+    /// 只有作用中的分頁有路徑；其他分頁保持在根層，避免同時掛兩個文章視圖。
+    private func path(for tab: KBTab) -> Binding<[NarrowRoute]> {
+        Binding(
+            get: { tab == state.tab ? route : [] },
+            set: { newPath in
+                guard tab == state.tab else { return }
+                if state.readerPresented && !newPath.contains(.reader) {
+                    state.closeReader(anchoringWithin: allFiles)
+                }
+                // 從搜尋返回：關閉搜尋模式但保留 query 草稿（清除按鈕才清空）。
+                if state.searchActive && !newPath.contains(.search) && !state.readerPresented {
+                    state.searchActive = false
+                }
+            })
+    }
+
+    private func stack<Root: View>(for tab: KBTab, @ViewBuilder root: () -> Root) -> some View {
+        NavigationStack(path: path(for: tab)) {
+            root()
+                .navigationTitle(title(for: tab))
+                .toolbar { browseToolbar(for: tab) }
+                .kbToolbarCompression(prefersTabBar: true)
+                .navigationDestination(for: NarrowRoute.self) { destination($0) }
+        }
+    }
+
+    private func title(for tab: KBTab) -> String {
+        switch tab {
+        case .all: return "Keepbox"
+        case .folders: return "資料夾"
+        case .tags: return "標籤"
+        }
+    }
+
+    @ViewBuilder
+    private func destination(_ route: NarrowRoute) -> some View {
+        switch route {
+        case .search:
+            SearchView(state: state, allFiles: allFiles, onOpen: { state.open($0) })
+                .navigationTitle("搜尋")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .tabBar)
+                .toolbar { searchToolbar }
+                .kbToolbarCompression(prefersTabBar: false)
+        case .reader:
+            if let file = selectedFile {
                 ReaderView(file: file, session: session, state: state, tags: tags, viewModel: viewModel,
-                           onBack: { withAnimation(.easeInOut(duration: 0.2)) { state.closeReader(anchoringWithin: allFiles) } })
-                    .transition(.opacity)
-            } else if state.searchActive {
-                SearchView(state: state, allFiles: allFiles,
-                           onBack: { withAnimation { state.searchActive = false } },
-                           onOpen: { state.open($0) })
-                    .transition(.opacity)
-            } else {
-                tabContent
-                    .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+                           onImport: onImport, onSync: onSync)
             }
-        }
-        .animation(.easeInOut(duration: 0.2), value: state.searchActive)
-        .animation(.easeInOut(duration: 0.2), value: state.readerPresented)
-    }
-
-    @ViewBuilder
-    private var tabContent: some View {
-        switch state.tab {
-        case .all:
-            HomeView(state: state, allFiles: allFiles, folders: folders, tags: tags,
-                     onOpen: { state.open($0) }, onLong: onLongPress,
-                     onSearch: { withAnimation { state.searchActive = true } },
-                     onSync: onSync)
-        case .folders:
-            FolderGridView(
-                folders: folders.filter { $0.parent == nil }, allFiles: allFiles,
-                onOpen: { folder in
-                    state.select(.folder(folder.id))
-                    withAnimation { state.tab = .all }
-                })
-        case .tags:
-            TagListView(
-                tags: tags, allFiles: allFiles,
-                onPick: { tag in
-                    state.select(.tag(tag.id))
-                    withAnimation { state.tab = .all }
-                })
         }
     }
 
-    // MARK: Bottom bar（safeAreaInset：捲動內容自動避開，不用硬編碼底部高度）
-    private var bottomBar: some View {
-        VStack(alignment: .trailing, spacing: 14) {
-            Button(action: onImport) {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
-                    .background(Color.kbAccent)
-                    .clipShape(RoundedRectangle(cornerRadius: 17))
-                    .shadow(color: Color.kbAccent.opacity(0.45), radius: 14, x: 0, y: 8)
-            }
-            .accessibilityLabel("新增收藏")
-            .padding(.trailing, 22)
+    // MARK: Toolbars（docs/iphone-duo-design.md §13.3 A／B）
 
-            HStack(spacing: 0) {
-                tabButton(.all, "全部", "doc.text")
-                tabButton(.folders, "資料夾", "folder")
-                tabButton(.tags, "標籤", "tag")
-            }
-            .frame(height: 62)
-            .padding(.horizontal, 24)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.14), radius: 20, x: 0, y: 8)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+    @ToolbarContentBuilder
+    private func browseToolbar(for tab: KBTab) -> some ToolbarContent {
+        ToolbarItem(placement: .kbPrimary) {
+            Button(action: onImport) { Label("新增收藏", systemImage: "plus") }
+        }
+        .kbPriority(.high)
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { state.searchActive = true } label: { Label("搜尋收藏", systemImage: "magnifyingglass") }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            SyncToolbarButton(action: onSync)
+        }
+        .kbPriority(SyncStatusIcon.isFailed ? .high : .automatic)
+        if tab == .all {
+            // 不放 .bottomBar：iOS 26 在 TabView 裡底部工具列會疊在分頁列上。
+            // 排列與排序合成一個選單（兩組 Picker 保留各自的選取語意），低優先，空間不足先進溢出。
+            ToolbarItem(placement: .topBarTrailing) { displayMenu }
+                .kbPriority(.low)
         }
     }
 
-    @ViewBuilder
-    private func tabButton(_ t: KBTab, _ label: String, _ icon: String) -> some View {
-        Button { withAnimation(.easeInOut(duration: 0.18)) { state.tab = t } } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon).font(.system(size: 20))
-                Text(label).font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(state.tab == t ? Color.kbAccent : Color.secondary)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
+    @ToolbarContentBuilder
+    private var searchToolbar: some ToolbarContent {
+        ToolbarItem(placement: .kbPrimary) {
+            Button(action: onImport) { Label("新增收藏", systemImage: "plus") }
         }
-        .accessibilityAddTraits(state.tab == t ? [.isSelected] : [])
+        .kbPriority(.high)
+        ToolbarItem(placement: .bottomBar) { sortMenu }
+            .kbPriority(.low)
+        KBOverflowMenu(fallbackPlacement: .bottomBar) {
+            Button(action: onSync) { Label("同步設定", systemImage: SyncStatusIcon.symbolName) }
+                .accessibilityValue(SyncStatusIcon.spokenState)
+        }
+    }
+
+    private var displayMenu: some View {
+        Menu {
+            Section("排列") {
+                Picker("排列", selection: $state.layout) {
+                    Label("網格", systemImage: "square.grid.2x2").tag(KBLayout.grid)
+                    Label("圖文", systemImage: "rectangle.grid.1x2").tag(KBLayout.gallery)
+                    Label("清單", systemImage: "list.bullet").tag(KBLayout.list)
+                }
+                .pickerStyle(.inline)
+            }
+            Section("排序") {
+                Picker("排序", selection: $state.sort) {
+                    ForEach(LibrarySort.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.inline)
+            }
+        } label: {
+            Label("排列與排序", systemImage: layoutSymbol)
+        }
+    }
+
+    private var layoutSymbol: String {
+        switch state.layout {
+        case .grid: return "square.grid.2x2"
+        case .gallery: return "rectangle.grid.1x2"
+        case .list: return "list.bullet"
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("排序", selection: $state.sort) {
+                ForEach(LibrarySort.allCases) { Text($0.rawValue).tag($0) }
+            }
+        } label: { Label("排序", systemImage: "arrow.up.arrow.down") }
     }
 }
 
@@ -224,6 +316,9 @@ private struct WideLibraryView: View {
 
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showCategories = false
+    @State private var showList = false
+    @State private var showTags = false
+    @State private var readingSource: CollectionSource?
 
     private var results: [HTMLFile] { state.results(from: allFiles) }
     private var readingFile: HTMLFile? { state.readerPresented ? selectedFile : nil }
@@ -254,10 +349,32 @@ private struct WideLibraryView: View {
         }
     }
 
+    /// detail 根頁統一掛系統 toolbar（Duo 攤開時只有 detail 欄參與直式列）。
+    /// 瀏覽掛瀏覽組、閱讀掛閱讀組，不同時加兩組。
     private var detailWithToolbar: some View {
         detail
-            .toolbar { toolbarContent }
+            .toolbar {
+                if let file = readingFile {
+                    readingToolbar(file)
+                } else {
+                    browseToolbar
+                }
+            }
             .toolbarTitleDisplayMode(.inline)
+            .kbToolbarCompression(prefersTabBar: readingFile == nil)
+            .sheet(isPresented: $showTags) {
+                if let file = readingFile {
+                    ReaderTagSheet(file: file, tags: tags, viewModel: viewModel, isPresented: $showTags)
+                }
+            }
+            .onAppear(perform: updateReadingSource)
+            .onChange(of: state.selectedFileID) { _, _ in updateReadingSource(); showList = false }
+            .onChange(of: readingFile?.content) { _, _ in updateReadingSource() }
+            .onChange(of: decision.readerAlongside) { _, alongside in if alongside { showList = false } }
+    }
+
+    private func updateReadingSource() {
+        readingSource = readingFile.map { CollectionSource.resolve(html: $0.content, sourceApp: $0.sourceApp) }
     }
 
     private var sidebar: some View {
@@ -279,17 +396,16 @@ private struct WideLibraryView: View {
             }
             if let file = readingFile {
                 if alongside { Divider() }
-                WideReaderView(file: file, session: session, state: state, tags: tags, viewModel: viewModel,
+                WideReaderView(file: file, session: session, state: state,
                                isOutsideResults: !results.contains { $0.id == file.id },
-                               collectionList: decision.readerAlongside ? nil : { dismiss in
-                                   AnyView(browser(isReadingAlongside: true, afterOpen: dismiss).background(Color.kbBg(scheme)))
-                               },
-                               onClose: { state.closeReader(anchoringWithin: allFiles) })
+                               onClose: closeReader)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationTitle(state.title(folders: folders, tags: tags))
+        .navigationTitle(readingFile?.name ?? state.title(folders: folders, tags: tags))
     }
+
+    private func closeReader() { state.closeReader(anchoringWithin: allFiles) }
 
     private func browser(isReadingAlongside: Bool, afterOpen: @escaping () -> Void = {}) -> CollectionBrowserView {
         CollectionBrowserView(state: state, files: results, folders: folders, tags: tags,
@@ -298,10 +414,13 @@ private struct WideLibraryView: View {
                               onOpen: { state.open($0); afterOpen() }, onRename: onRename, onImport: onImport)
     }
 
+    // MARK: Toolbars（docs/iphone-duo-design.md §13.3 A／C）
+
+    /// 分類欄沒並排時的「分類」入口（popover 需要錨在這顆按鈕上，所以不收進溢出選單）。
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
+    private var categoriesItem: some ToolbarContent {
         if !sidebarTiled && !(readingFile != nil && state.focusReading) {
-            ToolbarItem(placement: .navigation) {
+            ToolbarItem(placement: .topBarLeading) {
                 Button { showCategories = true } label: { Label("分類", systemImage: "sidebar.leading") }
                     .popover(isPresented: $showCategories) {
                         NavigationStack { sidebar }
@@ -309,28 +428,88 @@ private struct WideLibraryView: View {
                             .presentationCompactAdaptation(.sheet)
                     }
             }
+            .kbPriority(.high)
         }
-        ToolbarItemGroup(placement: .primaryAction) {
-            Menu {
-                Picker("排序", selection: $state.sort) {
-                    ForEach(LibrarySort.allCases) { Text($0.rawValue).tag($0) }
-                }
-            } label: { Label("排序", systemImage: "arrow.up.arrow.down") }
-            if readingFile == nil {
-                Menu {
-                    Picker("排列", selection: Binding(get: { state.layout == .list ? KBLayout.list : .grid },
-                                                     set: { state.layout = $0 })) {
-                        Label("網格", systemImage: "square.grid.2x2").tag(KBLayout.grid)
-                        Label("清單", systemImage: "list.bullet").tag(KBLayout.list)
-                    }
-                } label: {
-                    Label("排列", systemImage: state.layout == .list ? "list.bullet" : "square.grid.2x2")
-                }
-            }
-            Button(action: onSync) { Label("同步設定", systemImage: "arrow.triangle.2.circlepath") }
-                .accessibilityValue(SyncStatusIcon.spokenState)
+    }
+
+    @ToolbarContentBuilder
+    private var browseToolbar: some ToolbarContent {
+        categoriesItem
+        ToolbarItem(placement: .kbPrimary) {
             Button(action: onImport) { Label("新增收藏", systemImage: "plus") }
         }
+        .kbPriority(.high)
+        ToolbarItem(placement: .topBarTrailing) {
+            SyncToolbarButton(action: onSync)
+        }
+        .kbPriority(SyncStatusIcon.isFailed ? .high : .automatic)
+        ToolbarItem(placement: .topBarTrailing) { layoutMenu }
+            .kbPriority(.low)
+        ToolbarItem(placement: .topBarTrailing) { sortMenu }
+            .kbPriority(.low)
+    }
+
+    @ToolbarContentBuilder
+    private func readingToolbar(_ file: HTMLFile) -> some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button(action: closeReader) { Label("關閉閱讀", systemImage: "xmark") }
+        }
+        .kbPriority(.high)
+        categoriesItem
+        if !decision.readerAlongside {
+            // 單頁閱讀（600–759pt）：叫出收藏清單浮層；開關不改文章寬度、不重載 HTML。
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showList = true } label: { Label("收藏清單", systemImage: "list.bullet.rectangle") }
+                    .popover(isPresented: $showList) {
+                        browser(isReadingAlongside: true, afterOpen: { showList = false })
+                            .background(Color.kbBg(scheme))
+                            .frame(idealWidth: 300, maxWidth: 320, idealHeight: 560)
+                            .presentationCompactAdaptation(.sheet)
+                    }
+            }
+            .kbPriority(.high)
+        }
+        ReaderToolbarItems(file: file, session: session, state: state,
+                           originalURL: readingSource?.originalURL, compact: false,
+                           onTags: { showTags = true })
+        if decision.readerAlongside || state.focusReading {
+            // 並排時：展開成只剩文章／返回並排。從專注縮到單頁寬度時仍提供退出。
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { state.focusReading.toggle() }
+                } label: {
+                    Label(state.focusReading ? (decision.readerAlongside ? "返回並排" : "返回閱讀") : "展開閱讀",
+                          systemImage: state.focusReading ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                }
+            }
+            .kbPriority(state.focusReading ? .high : .automatic)
+        }
+        KBOverflowMenu(fallbackPlacement: .topBarTrailing) {
+            sortMenu
+            Button(action: onImport) { Label("新增收藏", systemImage: "plus") }
+            Button(action: onSync) { Label("同步設定", systemImage: SyncStatusIcon.symbolName) }
+                .accessibilityValue(SyncStatusIcon.spokenState)
+        }
+    }
+
+    private var layoutMenu: some View {
+        Menu {
+            Picker("排列", selection: Binding(get: { state.layout == .list ? KBLayout.list : .grid },
+                                             set: { state.layout = $0 })) {
+                Label("網格", systemImage: "square.grid.2x2").tag(KBLayout.grid)
+                Label("清單", systemImage: "list.bullet").tag(KBLayout.list)
+            }
+        } label: {
+            Label("排列", systemImage: state.layout == .list ? "list.bullet" : "square.grid.2x2")
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("排序", selection: $state.sort) {
+                ForEach(LibrarySort.allCases) { Text($0.rawValue).tag($0) }
+            }
+        } label: { Label("排序", systemImage: "arrow.up.arrow.down") }
     }
 }
 

@@ -176,4 +176,101 @@ final class LibrarySceneStateTests: XCTestCase {
         XCTAssertEqual(state.filter, .folder(other.id))
         XCTAssertNil(state.listAnchors[state.listAnchorKey], "A 不在「旅行」結果中，不寫成它的錨點")
     }
+
+    // MARK: Duo 展開→折疊：過渡寬度期間的列表回報不可覆寫錨點
+
+    @MainActor
+    func testListReportsIgnoredWhileWidthIsChanging() async throws {
+        let state = LibrarySceneState()
+        let a = UUID(), b = UUID()
+        let key = state.listAnchorKey
+        XCTAssertTrue(state.reportListTop(a, key: key))
+        XCTAssertEqual(state.listAnchors[key], a)
+
+        state.containerWidthDidChange()           // 867 → 466 → 382 的過渡
+        XCTAssertTrue(state.listAnchorsFrozen)
+        XCTAssertFalse(state.reportListTop(b, key: key), "過渡排版的頂端不可寫回")
+        XCTAssertEqual(state.listAnchors[key], a)
+
+        let generation = state.listSettleGeneration
+        try await Task.sleep(for: .milliseconds(1100))
+        XCTAssertFalse(state.listAnchorsFrozen)
+        XCTAssertEqual(state.listSettleGeneration, generation + 1, "穩定後通知列表捲回記錄位置")
+        XCTAssertTrue(state.reportListTop(b, key: key))
+        XCTAssertEqual(state.listAnchors[key], b)
+    }
+
+    @MainActor
+    func testRepeatedWidthChangesSettleOnceAfterTheLast() async throws {
+        let state = LibrarySceneState()
+        let generation = state.listSettleGeneration
+        state.containerWidthDidChange()
+        try await Task.sleep(for: .milliseconds(500))
+        state.containerWidthDidChange()           // 第二個過渡寬度：重新計時
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertTrue(state.listAnchorsFrozen, "距離最後一次變動未滿 900ms")
+        XCTAssertEqual(state.listSettleGeneration, generation)
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertFalse(state.listAnchorsFrozen)
+        XCTAssertEqual(state.listSettleGeneration, generation + 1)
+    }
+
+    @MainActor
+    func testUserScrollDuringFreezeWinsAndCancelsRestore() async throws {
+        let state = LibrarySceneState()
+        let a = UUID(), b = UUID()
+        let key = state.listAnchorKey
+        state.reportListTop(a, key: key)
+        state.containerWidthDidChange()
+        let generation = state.listSettleGeneration
+        state.listUserDidInteract()               // 開合後立刻自己滑動
+        XCTAssertFalse(state.listAnchorsFrozen)
+        XCTAssertTrue(state.reportListTop(b, key: key), "使用者的新位置要採用")
+        try await Task.sleep(for: .milliseconds(1100))
+        XCTAssertEqual(state.listSettleGeneration, generation, "已取消復原，不可再拉回 A")
+        XCTAssertEqual(state.listAnchors[key], b)
+    }
+
+    @MainActor
+    func testWidthChangeDuringOngoingDragDoesNotRefreezeOrRestore() async throws {
+        let state = LibrarySceneState()
+        let a = UUID(), c = UUID(), dragOwner = UUID()
+        let key = state.listAnchorKey
+        state.reportListTop(a, key: key)
+        let generation = state.listSettleGeneration
+        state.setListUserScrolling(true, owner: dragOwner)          // 開始拖動
+        state.containerWidthDidChange()           // 拖動途中再次改寬
+        XCTAssertFalse(state.listAnchorsFrozen)
+        XCTAssertTrue(state.reportListTop(c, key: key))
+        state.setListUserScrolling(false, owner: dragOwner)
+        try await Task.sleep(for: .milliseconds(1100))
+        XCTAssertEqual(state.listSettleGeneration, generation, "使用者拖動中的寬度變化不可排程復原")
+        XCTAssertEqual(state.listAnchors[key], c)
+    }
+
+    @MainActor
+    func testScrollStartedWhileWaitingSkipsRestore() async throws {
+        let state = LibrarySceneState()
+        let generation = state.listSettleGeneration
+        state.containerWidthDidChange()
+        let owner = UUID()
+        try await Task.sleep(for: .milliseconds(300))
+        state.setListUserScrolling(true, owner: owner)
+        try await Task.sleep(for: .milliseconds(900))
+        XCTAssertEqual(state.listSettleGeneration, generation)
+        state.setListUserScrolling(false, owner: owner)
+    }
+
+    func testOneListLeavingDoesNotClearAnotherListsScrolling() {
+        let state = LibrarySceneState()
+        let oldList = UUID(), newList = UUID()
+        state.setListUserScrolling(true, owner: oldList)
+        state.setListUserScrolling(true, owner: newList)
+        state.setListUserScrolling(false, owner: oldList)   // 舊列表離開
+        XCTAssertTrue(state.listUserScrolling, "新列表仍在捲動")
+        state.containerWidthDidChange()
+        XCTAssertFalse(state.listAnchorsFrozen)
+        state.setListUserScrolling(false, owner: newList)
+        XCTAssertFalse(state.listUserScrolling)
+    }
 }
